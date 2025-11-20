@@ -2,71 +2,113 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 
-import sys
 import os
 
-# Routing imports (from your existing A2A code)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from graph import load_graph
-from algorithms.dfs import dfs_search
-from algorithms.bfs import bfs_search
-from algorithms.cus1_ucs import cus1_ucs
-from algorithms.astar import astar_search
-from algorithms.gbfs import gbfs_search
-from algorithms.cus2_hcs import cus2_hcs
+from topk import yen_k_shortest_paths
 
 # =============================
 # ICS GUI (Assignment 2B)
 # =============================
 class ICS_GUI:
+    CANVAS_WIDTH = 820
+    CANVAS_HEIGHT = 720
+    MAP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps", "kuching_city.txt")
+
     def __init__(self, root):
         self.root = root
         self.root.title("ICS – Incident Classification System")
         self.root.geometry("1350x750")
 
-        # ML prediction
+        # ML prediction placeholders
         self.uploaded_img = None
         self.cnn_model = None
         self.model2 = None
+        self.current_severity = None
 
+        self.graph = {}
+        self.origin_default = None
+        self.destination_defaults = []
+        self.coords = {}
+        self.accident = {}
+        self.landmarks = {}
+        self.name_to_id = {}
+        self.canvas_points = {}
+        self.current_paths = []
+
+        self.load_map_data()
         self.build_layout()
+        self.draw_map()
 
     # ---------------------------
     # Main UI layout
     # ---------------------------
     def build_layout(self):
 
-        # FRAME LEFT = Routing + Map
-        left = tk.Frame(self.root, width=850, height=750, bg="white")
+    # --- Main Window Size ---
+        self.root.geometry("1250x700")   # slightly smaller, fits screens better
+
+        # ============================
+        # LEFT PANEL (Map)
+        # ============================
+        left = tk.Frame(self.root, width=850, height=700, bg="white")
         left.pack(side="left", fill="both", expand=True)
 
-        self.map_canvas = tk.Canvas(left, bg="white", highlightbackground="#ccc")
+        self.map_canvas = tk.Canvas(
+            left,
+            bg="white",
+            highlightbackground="#ccc",
+            width=self.CANVAS_WIDTH,
+            height=self.CANVAS_HEIGHT,
+        )
         self.map_canvas.pack(fill="both", expand=True)
 
-        # FRAME RIGHT = AI classification
-        right = tk.Frame(self.root, width=500, bg="#f5f5f5", padx=20, pady=20)
-        right.pack(side="right", fill="y")
+        # ============================
+        # RIGHT PANEL (SCROLLABLE)
+        # ============================
 
+        # Outer frame holding canvas + scrollbar
+        right_outer = tk.Frame(self.root, width=400, bg="#f5f5f5")
+        right_outer.pack(side="right", fill="y")
+
+        # Canvas used for scrolling
+        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=400)
+        right_canvas.pack(side="left", fill="both", expand=True)
+
+        # Scrollbar
+        scrollbar = tk.Scrollbar(right_outer, orient="vertical", command=right_canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+
+        right_canvas.configure(yscrollcommand=scrollbar.set)
+        right_canvas.bind(
+            "<Configure>",
+            lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all"))
+        )
+
+        # Actual content frame placed INSIDE the canvas
+        right = tk.Frame(right_canvas, bg="#f5f5f5", padx=20, pady=20)
+        right_canvas.create_window((0, 0), window=right, anchor="nw")
+
+        # ==============================
+        # RIGHT SIDE CONTENT (unchanged)
+        # ==============================
         tk.Label(right, text="Accident Image Classification",
-                 font=("Arial", 16, "bold")).pack(pady=10)
+                font=("Arial", 16, "bold")).pack(pady=10)
 
-        # Image preview box
         self.preview = tk.Label(right, text="No Image Uploaded",
                                 bg="#ddd", width=40, height=12)
         self.preview.pack(pady=10)
 
         tk.Button(right, text="Upload Image",
-                  command=self.upload_image,
-                  width=25).pack(pady=5)
+                command=self.upload_image,
+                width=25).pack(pady=5)
 
-        # Predictions
         self.cnn_label = tk.Label(right, text="CNN Prediction: -",
-                                  font=("Arial", 12), anchor="w")
+                                font=("Arial", 12), anchor="w")
         self.cnn_label.pack(fill="x", pady=5)
 
         self.model2_label = tk.Label(right, text="Model 2 Prediction: -",
-                                     font=("Arial", 12), anchor="w")
+                                    font=("Arial", 12), anchor="w")
         self.model2_label.pack(fill="x", pady=5)
 
         self.final_label = tk.Label(right, text="Final Severity: -",
@@ -75,20 +117,52 @@ class ICS_GUI:
         self.final_label.pack(fill="x", pady=10)
 
         tk.Button(right, text="Run Models",
-                  command=self.run_ml_prediction,
-                  width=25).pack(pady=5)
+                command=self.run_ml_prediction,
+                width=25).pack(pady=5)
 
         tk.Label(right, text="---------------------------------").pack(pady=10)
 
-        # Routing Panel
         tk.Label(right, text="Route Finder", font=("Arial", 16, "bold")).pack()
 
-        tk.Button(right, text="Run Routing",
-                  command=self.run_routing,
-                  width=25).pack(pady=10)
+        selections = tk.Frame(right, bg="#f5f5f5")
+        selections.pack(fill="x", pady=5)
 
-        self.route_output = tk.Text(right, height=12, width=50)
-        self.route_output.pack()
+        tk.Label(selections, text="Origin:", anchor="w",
+                bg="#f5f5f5").grid(row=0, column=0, sticky="w")
+        origin_names = [self.landmarks[node] for node in sorted(self.landmarks)]
+        self.origin_var = tk.StringVar(value=origin_names[0])
+        tk.OptionMenu(selections, self.origin_var, *origin_names).grid(row=0, column=1, sticky="ew")
+
+        tk.Label(selections, text="Destination:", anchor="w",
+                bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        self.destination_var = tk.StringVar(value=origin_names[0])
+        tk.OptionMenu(selections, self.destination_var, *origin_names).grid(row=1, column=1, sticky="ew", pady=(8, 0))
+
+        tk.Label(selections, text="Number of routes (k):", anchor="w",
+                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self.k_var = tk.StringVar(value="3")
+        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=2, column=1, sticky="w")
+
+        selections.grid_columnconfigure(1, weight=1)
+
+        tk.Button(right, text="Run Routing",
+                command=self.run_routing,
+                width=25).pack(pady=10)
+
+        map_label = os.path.basename(self.MAP_FILE) if os.path.exists(self.MAP_FILE) else "No map found"
+        tk.Label(right, text=f"Map: {map_label}", fg="#555", bg="#f5f5f5").pack()
+
+        # Output box with scroll
+        output_frame = tk.Frame(right, bg="#f5f5f5")
+        output_frame.pack(fill="both", expand=True, pady=(10, 0))
+
+        scroll = tk.Scrollbar(output_frame, orient="vertical")
+        scroll.pack(side="right", fill="y")
+
+        self.route_output = tk.Text(output_frame, height=10, width=40, yscrollcommand=scroll.set, wrap="word")
+        self.route_output.pack(side="left", fill="both", expand=True)
+        scroll.config(command=self.route_output.yview)
+
 
     # ---------------------------
     # Image Upload
@@ -128,16 +202,164 @@ class ICS_GUI:
     # ---------------------------
     # Routing
     # ---------------------------
+    def load_map_data(self):
+        try:
+            (
+                self.graph,
+                self.origin_default,
+                self.destination_defaults,
+                self.coords,
+                self.accident,
+                self.landmarks,
+            ) = load_graph(self.MAP_FILE)
+        except FileNotFoundError:
+            messagebox.showerror("Error", f"Map file not found: {self.MAP_FILE}")
+            self.graph = {}
+            self.landmarks = {}
+            return
+
+        self.name_to_id = {name: node for node, name in self.landmarks.items()}
+        self.compute_canvas_points()
+
+    def compute_canvas_points(self):
+        if not self.coords:
+            self.canvas_points = {}
+            return
+        xs = [pt[0] for pt in self.coords.values()]
+        ys = [pt[1] for pt in self.coords.values()]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        span_x = max(max_x - min_x, 1e-5)
+        span_y = max(max_y - min_y, 1e-5)
+        margin = 40
+
+        self.canvas_points = {}
+        for node, (x, y) in self.coords.items():
+            norm_x = (x - min_x) / span_x
+            norm_y = (y - min_y) / span_y
+            canvas_x = margin + norm_x * (self.CANVAS_WIDTH - 2 * margin)
+            canvas_y = self.CANVAS_HEIGHT - (margin + norm_y * (self.CANVAS_HEIGHT - 2 * margin))
+            self.canvas_points[node] = (canvas_x, canvas_y)
+
+    def draw_map(self, highlighted_paths=None, origin=None, destination=None):
+        self.map_canvas.delete("all")
+        if not self.canvas_points:
+            self.map_canvas.create_text(
+                self.CANVAS_WIDTH / 2,
+                self.CANVAS_HEIGHT / 2,
+                text="No map data loaded",
+                fill="gray",
+            )
+            return
+
+        highlighted_edges = set()
+        if highlighted_paths:
+            for path in highlighted_paths:
+                for i in range(len(path) - 1):
+                    edge = (path[i], path[i + 1])
+                    highlighted_edges.add(edge)
+
+        drawn_edges = set()
+        for u, neighbors in self.graph.items():
+            for v, _ in neighbors:
+                if (v, u) in drawn_edges:
+                    continue
+                drawn_edges.add((u, v))
+                x1, y1 = self.canvas_points.get(u, (0, 0))
+                x2, y2 = self.canvas_points.get(v, (0, 0))
+                color = "#ff8c42" if (u, v) in highlighted_edges else "#d0d0d0"
+                width = 4 if (u, v) in highlighted_edges else 2
+                self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
+
+        for node, (x, y) in self.canvas_points.items():
+            fill = "#0077b6"
+            radius = 6
+            if node == origin:
+                fill = "#2a9d8f"
+                radius = 7
+            elif node == destination:
+                fill = "#e63946"
+                radius = 7
+            self.map_canvas.create_oval(
+                x - radius,
+                y - radius,
+                x + radius,
+                y + radius,
+                fill=fill,
+                outline="white",
+                width=2,
+            )
+            label = self.landmarks.get(node, str(node))
+            self.map_canvas.create_text(
+                x + 10,
+                y - 10,
+                text=label,
+                anchor="w",
+                font=("Arial", 9),
+                fill="#333",
+            )
+
+    def resolve_node(self, name):
+        node_id = self.name_to_id.get(name)
+        if node_id is None:
+            raise ValueError(f"Unknown landmark: {name}")
+        return node_id
+
+    def node_label(self, node):
+        label = self.landmarks.get(node)
+        return f"{node} ({label})" if label else str(node)
+
     def run_routing(self):
+        if not self.graph:
+            messagebox.showwarning("Missing Map", "Map data is not loaded.")
+            return
 
-        # TODO: load graph, call your algorithms, draw map
-        # Use your existing 1A code here
+        origin_name = self.origin_var.get()
+        destination_name = self.destination_var.get()
 
-        # Example output:
+        try:
+            origin_id = self.resolve_node(origin_name)
+            destination_id = self.resolve_node(destination_name)
+        except ValueError as exc:
+            messagebox.showerror("Invalid selection", str(exc))
+            return
+
+        try:
+            k = max(1, min(5, int(self.k_var.get())))
+        except ValueError:
+            k = 1
+
+        paths, nodes_expanded = yen_k_shortest_paths(self.graph, origin_id, destination_id, k)
         self.route_output.delete("1.0", tk.END)
-        self.route_output.insert(tk.END,
-            "Origin: X\nDestination: Y\nBest Routes:\n1) Path A → B → C (12 min)"
-        )
+
+        if not paths:
+            self.route_output.insert(
+                tk.END,
+                f"No path found from {origin_name} to {destination_name}.\n"
+            )
+            self.draw_map(origin=origin_id, destination=destination_id)
+            return
+
+        highlighted_paths = [entry["path"] for entry in paths]
+        self.draw_map(highlighted_paths, origin_id, destination_id)
+
+        lines = [
+            f"Origin: {self.node_label(origin_id)}",
+            f"Destination: {self.node_label(destination_id)}",
+            f"Accident: {self.accident.get('edge')} ({self.accident.get('severity')})",
+            "",
+            "Routes:",
+        ]
+
+        for idx, info in enumerate(paths, start=1):
+            path_nodes = " -> ".join(self.node_label(n) for n in info["path"])
+            lines.append(f"{idx}) {path_nodes}")
+            lines.append(f"    Travel time: {info['cost']:.4f}")
+
+        lines.append("")
+        lines.append(f"Nodes expanded across runs: {nodes_expanded}")
+
+        self.route_output.insert(tk.END, "\n".join(lines))
 
 
 def main():

@@ -1,5 +1,6 @@
 # graph.py  (Assignment 2B version)
 
+
 def load_graph(filename):
     """
     Reads the updated test file and returns:
@@ -8,6 +9,7 @@ def load_graph(filename):
       - destinations: list[int]
       - coords: {node: (x,y)}
       - accident: { "edge": (u,v), "severity": str, "multiplier": float }
+      - landmarks: {node: "Landmark Name"} (optional)
     """
 
     with open(filename, "r") as file:
@@ -18,6 +20,7 @@ def load_graph(filename):
     destinations = []
     coords = {}
     accident = {"edge": None, "severity": None, "multiplier": 1.0}
+    landmarks = {}
 
     section = None
 
@@ -48,6 +51,12 @@ def load_graph(filename):
         # --------------------
         # Parse Directed Edges
         # --------------------
+        elif section == "Landmarks":
+            # Format:  1: Padang Merdeka
+            node_str, name = line.split(":")
+            node_id = int(node_str.strip())
+            landmarks[node_id] = name.strip()
+
         elif section == "Edges":
             # Format: (u,v): value
             pair, val = line.split(":")
@@ -98,4 +107,4 @@ def load_graph(filename):
                 new_list.append((nbr, cost))
             graph[u] = new_list
 
-    return graph, origin, destinations, coords, accident
+    return graph, origin, destinations, coords, accident, landmarks
