@@ -365,7 +365,13 @@ def build_connection_graph(
     *,
     spec: OSMSpec,
     name_to_node: Dict[str, int],
-) -> Tuple[Dict[int, Tuple[float, float]], Dict[Tuple[int, int], float], Dict[int, str], Dict[str, int]]:
+) -> Tuple[
+    Dict[int, Tuple[float, float]],
+    Dict[Tuple[int, int], float],
+    Dict[int, str],
+    Dict[str, int],
+    Dict[Tuple[int, int], List[Tuple[float, float]]],
+]:
     if not name_to_node:
         raise ValueError("No landmarks mapped to OSM nodes.")
 
@@ -398,6 +404,7 @@ def build_connection_graph(
         name_to_newid[name] = idx
 
     edges: Dict[Tuple[int, int], float] = {}
+    polylines: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
     for name_a, name_b in spec.connections:
         if name_a not in name_to_newid or name_b not in name_to_newid:
             print(f"[warn] Connection uses unknown landmark ({name_a} -> {name_b})")
@@ -408,17 +415,29 @@ def build_connection_graph(
             print(f"[warn] Unable to map connection ({name_a} -> {name_b}) to OSM nodes")
             continue
         try:
-            cost_seconds = nx.shortest_path_length(
+            path_nodes = nx.shortest_path(
                 weighted, origin_node, target_node, weight="weight"
             )
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             print(f"[warn] No path between {name_a} and {name_b}")
             continue
+        cost_seconds = 0.0
+        polyline_points: List[Tuple[float, float]] = []
+        for idx in range(len(path_nodes) - 1):
+            u = path_nodes[idx]
+            v = path_nodes[idx + 1]
+            data = weighted.get_edge_data(u, v)
+            if data is None:
+                continue
+            cost_seconds += data["weight"]
+        for node_id in path_nodes:
+            node_data = G.nodes[node_id]
+            polyline_points.append((node_data["x"], node_data["y"]))
         new_u = name_to_newid[name_a]
         new_v = name_to_newid[name_b]
         edges[(new_u, new_v)] = cost_seconds / 3600.0
-
-    return nodes, edges, landmarks, name_to_newid
+        polylines[(new_u, new_v)] = polyline_points
+    return nodes, edges, landmarks, name_to_newid, polylines
 
 
 def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
@@ -436,7 +455,7 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
         missing = set(spec.landmarks) - set(name_to_node)
         print(f"[warn] Could not map landmarks for {spec.name}: {', '.join(missing)}")
 
-    nodes, edges, landmark_map, name_to_newid = build_connection_graph(
+    nodes, edges, landmark_map, name_to_newid, polylines = build_connection_graph(
         sub, spec=spec, name_to_node=name_to_node
     )
     if not nodes or not edges:
@@ -479,6 +498,13 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
         meta_path=meta_path,
         zoom=spec.zoom,
     )
+
+    poly_path = dest.with_suffix(".paths.json")
+    path_payload = {
+        f"{u}-{v}": [{"lon": float(px), "lat": float(py)} for px, py in points]
+        for (u, v), points in polylines.items()
+    }
+    poly_path.write_text(json.dumps(path_payload, indent=2), encoding="utf-8")
 
 
 def main():

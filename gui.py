@@ -345,15 +345,14 @@ class ICS_GUI:
         if highlighted_paths:
             for path in highlighted_paths:
                 for i in range(len(path) - 1):
-                    edge = (path[i], path[i + 1])
-                    highlighted_edges.add(edge)
+                    highlighted_edges.add((path[i], path[i + 1]))
 
-        drawn_edges = set()
         for u, neighbors in self.graph.items():
             for v, _ in neighbors:
-                if (v, u) in drawn_edges:
+                polyline = self.edge_polylines.get((u, v))
+                if polyline:
+                    self.draw_polyline(polyline, is_highlighted=(u, v) in highlighted_edges)
                     continue
-                drawn_edges.add((u, v))
                 x1, y1 = self.canvas_points.get(u, (0, 0))
                 x2, y2 = self.canvas_points.get(v, (0, 0))
                 color = "#ff8c42" if (u, v) in highlighted_edges else "#d0d0d0"
@@ -401,6 +400,7 @@ class ICS_GUI:
             base = os.path.splitext(filename)[0]
             meta_path = os.path.join(self.MAP_DIR, f"{base}.meta.json")
             image_path = os.path.join(self.MAP_DIR, f"{base}.png")
+            paths_path = os.path.join(self.MAP_DIR, f"{base}.paths.json")
             meta = self.load_map_metadata(meta_path)
             if meta and meta.get("image"):
                 candidate = os.path.join(self.MAP_DIR, meta["image"])
@@ -410,6 +410,7 @@ class ICS_GUI:
                 "label": self.pretty_map_label(filename),
                 "map_path": path,
                 "image_path": image_path if os.path.exists(image_path) else None,
+                "paths_path": paths_path if os.path.exists(paths_path) else None,
                 "meta": meta,
             }
             entries.append(entry)
@@ -469,6 +470,7 @@ class ICS_GUI:
         self.current_projection = None
 
         image_path = entry.get("image_path")
+        paths_path = entry.get("paths_path")
         meta = entry.get("meta")
 
         if image_path and os.path.exists(image_path):
@@ -496,9 +498,32 @@ class ICS_GUI:
             self.background_offset = (0, 0)
             self.background_display_size = (self.CANVAS_WIDTH, self.CANVAS_HEIGHT)
 
+        if paths_path and os.path.exists(paths_path):
+            self.edge_polylines = self.load_edge_polylines(paths_path)
+        else:
+            self.edge_polylines = {}
+
         if meta:
             self.current_extent = meta.get("extent")
             self.current_projection = meta.get("projection")
+
+    def load_edge_polylines(self, path_file):
+        try:
+            with open(path_file, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:
+            return {}
+
+        polylines = {}
+        for key, points in data.items():
+            try:
+                u_str, v_str = key.split("-")
+                u = int(u_str)
+                v = int(v_str)
+            except ValueError:
+                continue
+            polylines[(u, v)] = [(pt["lon"], pt["lat"]) for pt in points]
+        return polylines
 
     @staticmethod
     def lonlat_to_webmerc(lon, lat):
@@ -507,6 +532,59 @@ class ICS_GUI:
         x = r * math.radians(lon)
         y = r * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
         return x, y
+
+    def polyline_to_canvas(self, polyline):
+        using_projection = bool(self.current_extent and self.current_projection == "web_mercator")
+        points = []
+        if using_projection:
+            min_x = self.current_extent["xmin"]
+            max_x = self.current_extent["xmax"]
+            min_y = self.current_extent["ymin"]
+            max_y = self.current_extent["ymax"]
+            display_width, display_height = self.background_display_size
+            offset_x, offset_y = self.background_offset
+            span_x = max(max_x - min_x, 1e-5)
+            span_y = max(max_y - min_y, 1e-5)
+            scale_x = display_width / span_x
+            scale_y = display_height / span_y
+
+            for lon, lat in polyline:
+                x_m, y_m = self.lonlat_to_webmerc(lon, lat)
+                px = offset_x + (x_m - min_x) * scale_x
+                py = offset_y + display_height - (y_m - min_y) * scale_y
+                points.append((px, py))
+        else:
+            xs = [pt[0] for pt in self.coords.values()]
+            ys = [pt[1] for pt in self.coords.values()]
+            min_x, max_x = min(xs), max(xs)
+            min_y, max_y = min(ys), max(ys)
+            span_x = max(max_x - min_x, 1e-5)
+            span_y = max(max_y - min_y, 1e-5)
+            margin = 40
+            scale = min(
+                (self.CANVAS_WIDTH - 2 * margin) / span_x,
+                (self.CANVAS_HEIGHT - 2 * margin) / span_y,
+            )
+            offset_x = (self.CANVAS_WIDTH - span_x * scale) / 2
+            offset_y = (self.CANVAS_HEIGHT - span_y * scale) / 2
+
+            for lon, lat in polyline:
+                px = offset_x + (lon - min_x) * scale
+                py = self.CANVAS_HEIGHT - (offset_y + (lat - min_y) * scale)
+                points.append((px, py))
+
+        return points
+
+    def draw_polyline(self, polyline, is_highlighted=False):
+        canvas_points = self.polyline_to_canvas(polyline)
+        if len(canvas_points) < 2:
+            return
+        color = "#ff8c42" if is_highlighted else "#d0d0d0"
+        width = 4 if is_highlighted else 2
+        for i in range(len(canvas_points) - 1):
+            x1, y1 = canvas_points[i]
+            x2, y2 = canvas_points[i + 1]
+            self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
 
     def resolve_node(self, name):
         node_id = self.name_to_id.get(name)
