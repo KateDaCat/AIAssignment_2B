@@ -298,6 +298,10 @@ class ICS_GUI:
         self.compute_canvas_points()
         if hasattr(self, "origin_menu"):
             self.refresh_landmark_menus()
+        self.current_routes = []
+        self.active_route_index = 0
+        if hasattr(self, "route_selector_frame"):
+            self.update_route_selector()
 
     def compute_canvas_points(self):
         if not self.coords:

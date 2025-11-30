@@ -41,6 +41,56 @@ def fmt_float(value: float) -> str:
     return f"{value:.6f}"
 
 
+def build_weighted_graph(osm_graph):
+    weighted = nx.DiGraph()
+    for u, v, data in osm_graph.edges(data=True):
+        travel_time = data.get("travel_time")
+        if travel_time is None:
+            length = data.get("length", 0)
+            if not length:
+                continue
+            travel_time = (length / 1000.0) / 40.0 * 3600.0
+        travel_time = float(travel_time)
+        if not math.isfinite(travel_time) or travel_time <= 0:
+            continue
+        existing = weighted.get_edge_data(u, v)
+        if existing is None or travel_time < existing["weight"]:
+            weighted.add_edge(u, v, weight=travel_time)
+    return weighted
+
+
+def compute_polylines_for_edges(
+    osm_graph,
+    weighted_graph,
+    coords: Dict[int, Tuple[float, float]],
+    edges: Dict[Tuple[int, int], float],
+):
+    mapping: Dict[int, int] = {}
+    for node_id, (lon, lat) in coords.items():
+        mapped = nearest_node_simple(osm_graph, lat, lon)
+        if mapped is not None:
+            mapping[node_id] = mapped
+
+    polylines: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
+    for (u, v) in edges:
+        start = mapping.get(u)
+        end = mapping.get(v)
+        if start is None or end is None:
+            continue
+        try:
+            path_nodes = nx.shortest_path(
+                weighted_graph, start, end, weight="weight"
+            )
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            continue
+        points = []
+        for node_id in path_nodes:
+            node_data = osm_graph.nodes[node_id]
+            points.append((node_data["x"], node_data["y"]))
+        polylines[(u, v)] = points
+    return polylines
+
+
 def write_ics(
     path: Path,
     *,
@@ -175,7 +225,7 @@ def parse_heritage(raw_path: Path) -> HeritageData:
     )
 
 
-def convert_heritage(src: Path, dest: Path) -> None:
+def convert_heritage(src: Path, dest: Path, osm_graph=None, weighted_graph=None) -> None:
     data = parse_heritage(src)
     accident_edge = None
     accident_cost = None
@@ -206,15 +256,29 @@ def convert_heritage(src: Path, dest: Path) -> None:
 
     image_path = dest.with_suffix(".png")
     meta_path = dest.with_suffix(".meta.json")
+    heritage_polylines: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
+    if osm_graph is not None and weighted_graph is not None:
+        heritage_polylines = compute_polylines_for_edges(
+            osm_graph,
+            weighted_graph,
+            data.nodes,
+            data.edges,
+        )
+
+    extra_points = [pt for poly in heritage_polylines.values() for pt in poly]
     generate_basemap_image(
         nodes=data.nodes,
         image_path=image_path,
         meta_path=meta_path,
         zoom=17,
+        extra_points=extra_points,
     )
     poly_path = dest.with_suffix(".paths.json")
-    empty_payload: Dict[str, List[Dict[str, float]]] = {}
-    poly_path.write_text(json.dumps(empty_payload, indent=2), encoding="utf-8")
+    payload = {
+        f"{u}-{v}": [{"lon": float(px), "lat": float(py)} for px, py in points]
+        for (u, v), points in heritage_polylines.items()
+    }
+    poly_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 @dataclass
@@ -243,11 +307,17 @@ def generate_basemap_image(
     image_path: Path,
     meta_path: Path,
     zoom: int,
+    extra_points: List[Tuple[float, float]] | None = None,
 ):
     if not nodes:
         return
 
-    west, east, south, north = compute_bbox(nodes)
+    bbox_nodes = dict(nodes)
+    if extra_points:
+        extra_index = {-(idx + 1): pt for idx, pt in enumerate(extra_points)}
+        bbox_nodes.update(extra_index)
+
+    west, east, south, north = compute_bbox(bbox_nodes)
     if math.isclose(west, east) or math.isclose(south, north):
         return
 
@@ -365,6 +435,7 @@ def map_landmarks(G, landmarks_spec: Dict[str, Tuple[float, float]]):
 
 def build_connection_graph(
     G,
+    weighted_graph,
     *,
     spec: OSMSpec,
     name_to_node: Dict[str, int],
@@ -377,22 +448,6 @@ def build_connection_graph(
 ]:
     if not name_to_node:
         raise ValueError("No landmarks mapped to OSM nodes.")
-
-    # Build a weighted simple DiGraph for shortest-path queries
-    weighted = nx.DiGraph()
-    for u, v, data in G.edges(data=True):
-        travel_time = data.get("travel_time")
-        if travel_time is None:
-            length = data.get("length", 0)
-            if not length:
-                continue
-            travel_time = (length / 1000.0) / 40.0 * 3600.0
-        travel_time = float(travel_time)
-        if not math.isfinite(travel_time) or travel_time < 0:
-            continue
-        existing = weighted.get_edge_data(u, v)
-        if existing is None or travel_time < existing["weight"]:
-            weighted.add_edge(u, v, weight=travel_time)
 
     nodes: Dict[int, Tuple[float, float]] = {}
     landmarks: Dict[int, str] = {}
@@ -419,7 +474,7 @@ def build_connection_graph(
             continue
         try:
             path_nodes = nx.shortest_path(
-                weighted, origin_node, target_node, weight="weight"
+                weighted_graph, origin_node, target_node, weight="weight"
             )
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             print(f"[warn] No path between {name_a} and {name_b}")
@@ -429,7 +484,7 @@ def build_connection_graph(
         for idx in range(len(path_nodes) - 1):
             u = path_nodes[idx]
             v = path_nodes[idx + 1]
-            data = weighted.get_edge_data(u, v)
+            data = weighted_graph.get_edge_data(u, v)
             if data is None:
                 continue
             cost_seconds += data["weight"]
@@ -453,13 +508,14 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
             spec.bbox[3],
         ),
     )
+    weighted_sub = build_weighted_graph(sub)
     name_to_node = map_landmarks(sub, spec.landmarks)
     if len(name_to_node) < len(spec.landmarks):
         missing = set(spec.landmarks) - set(name_to_node)
         print(f"[warn] Could not map landmarks for {spec.name}: {', '.join(missing)}")
 
     nodes, edges, landmark_map, name_to_newid, polylines = build_connection_graph(
-        sub, spec=spec, name_to_node=name_to_node
+        sub, weighted_sub, spec=spec, name_to_node=name_to_node
     )
     if not nodes or not edges:
         raise ValueError(f"Simplified graph for {spec.name} is empty.")
@@ -495,11 +551,13 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
 
     image_path = dest.with_suffix(".png")
     meta_path = dest.with_suffix(".meta.json")
+    extra_points = [pt for polyline in polylines.values() for pt in polyline]
     generate_basemap_image(
         nodes=nodes,
         image_path=image_path,
         meta_path=meta_path,
         zoom=spec.zoom,
+        extra_points=extra_points,
     )
 
     poly_path = dest.with_suffix(".paths.json")
@@ -522,14 +580,19 @@ def main():
 
     heritage_src = Path("maps/heritage_assignment_15_time_asymmetric-1.txt")
     heritage_dest = output_dir / "kuching_heritage.txt"
+    osm_path = Path("maps/map.osm")
+    base_graph = load_osm_graph(osm_path)
+    weighted_graph = build_weighted_graph(base_graph)
 
     if not args.osm:
-        convert_heritage(heritage_src, heritage_dest)
+        convert_heritage(
+            heritage_src,
+            heritage_dest,
+            osm_graph=base_graph,
+            weighted_graph=weighted_graph,
+        )
 
     if not args.heritage:
-        osm_path = Path("maps/map.osm")
-        base_graph = load_osm_graph(osm_path)
-
         specs = [
             OSMSpec(
                 name="kuching_central_osm",
