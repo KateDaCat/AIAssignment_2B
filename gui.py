@@ -9,6 +9,12 @@ from PIL import Image, ImageTk
 
 from graph import load_graph
 from topk import yen_k_shortest_paths
+from algorithms.cus1_ucs import cus1_ucs
+from algorithms.dfs import dfs_search
+from algorithms.bfs import bfs_search
+from algorithms.gbfs import gbfs_search
+from algorithms.astar import astar_search
+from algorithms.cus2_hcs import cus2_hcs
 
 # =============================
 # ICS GUI (Assignment 2B)
@@ -59,6 +65,11 @@ class ICS_GUI:
         self.background_display_size = (self.CANVAS_WIDTH, self.CANVAS_HEIGHT)
         self.current_extent = None
         self.current_projection = None
+        self.current_routes = []
+        self.active_route_index = 0
+        self.last_origin_id = None
+        self.last_destination_id = None
+        self.edge_polylines = {}
 
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
@@ -184,6 +195,12 @@ class ICS_GUI:
         self.map_menu = tk.OptionMenu(selections, self.map_var, *map_labels, command=self.on_map_change)
         self.map_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
 
+        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        self.algorithm_var = tk.StringVar(value="CUS1")
+        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
+        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
+        self.algorithm_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
+
         selections.grid_columnconfigure(1, weight=1)
 
         tk.Button(right, text="Run Routing",
@@ -191,6 +208,13 @@ class ICS_GUI:
                 width=25).pack(pady=10)
 
         tk.Label(right, textvariable=self.map_label_var, fg="#555", bg="#f5f5f5").pack()
+
+        self.route_selector_frame = tk.Frame(right, bg="#f5f5f5")
+        tk.Label(self.route_selector_frame, text="Select route to display:", bg="#f5f5f5").pack(anchor="w")
+        self.route_listbox = tk.Listbox(self.route_selector_frame, height=4, exportselection=False)
+        self.route_listbox.pack(fill="x", pady=(2, 5))
+        self.route_listbox.bind("<<ListboxSelect>>", self.on_route_selected)
+        self.route_selector_frame.pack_forget()
 
         # Output box with scroll
         output_frame = tk.Frame(right, bg="#f5f5f5")
@@ -635,19 +659,56 @@ class ICS_GUI:
         except ValueError:
             k = 1
 
-        paths, nodes_expanded = yen_k_shortest_paths(self.graph, origin_id, destination_id, k)
+        method = self.algorithm_var.get().upper()
+        if method != "CUS1" and k > 1:
+            messagebox.showinfo(
+                "Top-k not available",
+                "Multiple routes are currently supported only for CUS1. "
+                "Proceeding with k=1.",
+            )
+            k = 1
+
+        self.current_routes = []
+        self.active_route_index = 0
+        self.last_origin_id = origin_id
+        self.last_destination_id = destination_id
+
         self.route_output.delete("1.0", tk.END)
 
-        if not paths:
-            self.route_output.insert(
-                tk.END,
-                f"No path found from {origin_name} to {destination_name}.\n"
-            )
-            self.draw_map(origin=origin_id, destination=destination_id)
-            return
+        if method == "CUS1" and k > 1:
+            routes, nodes_expanded = yen_k_shortest_paths(self.graph, origin_id, destination_id, k)
+            if not routes:
+                self.route_output.insert(
+                    tk.END,
+                    f"No path found from {origin_name} to {destination_name}.\n"
+                )
+                self.draw_map(origin=origin_id, destination=destination_id)
+                self.update_route_selector()
+                return
+            self.current_routes = routes
+        else:
+            try:
+                path, cost, nodes_expanded = self.run_single_search(
+                    method,
+                    origin_id,
+                    [destination_id],
+                )
+            except ValueError as exc:
+                messagebox.showerror("Error", str(exc))
+                return
+            if not path:
+                self.route_output.insert(
+                    tk.END,
+                    f"No path found from {origin_name} to {destination_name}.\n"
+                )
+                self.draw_map(origin=origin_id, destination=destination_id)
+                self.update_route_selector()
+                return
+            self.current_routes = [{"path": path, "cost": cost}]
 
-        highlighted_paths = [entry["path"] for entry in paths]
-        self.draw_map(highlighted_paths, origin_id, destination_id)
+        highlighted = [self.current_routes[self.active_route_index]["path"]]
+        self.draw_map(highlighted, origin_id, destination_id)
+        self.update_route_selector()
 
         lines = [
             f"Origin: {self.node_label(origin_id)}",
@@ -657,15 +718,61 @@ class ICS_GUI:
             "Routes:",
         ]
 
-        for idx, info in enumerate(paths, start=1):
+        for idx, info in enumerate(self.current_routes, start=1):
             path_nodes = " -> ".join(self.node_label(n) for n in info["path"])
             lines.append(f"{idx}) {path_nodes}")
             lines.append(f"    Travel time: {info['cost']:.4f}")
 
         lines.append("")
-        lines.append(f"Nodes expanded across runs: {nodes_expanded}")
+        lines.append(f"Nodes expanded: {nodes_expanded}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
+
+    def update_route_selector(self):
+        if len(self.current_routes) <= 1:
+            self.route_selector_frame.pack_forget()
+            return
+        if not self.route_selector_frame.winfo_ismapped():
+            self.route_selector_frame.pack(fill="x", pady=(5, 10))
+        self.route_listbox.delete(0, tk.END)
+        for idx, info in enumerate(self.current_routes):
+            self.route_listbox.insert(
+                tk.END,
+                f"Route {idx + 1}: {info['cost']:.4f} h",
+            )
+        self.route_listbox.selection_clear(0, tk.END)
+        self.route_listbox.selection_set(self.active_route_index)
+
+    def on_route_selected(self, _event):
+        if not self.current_routes:
+            return
+        selection = self.route_listbox.curselection()
+        if not selection:
+            return
+        idx = selection[0]
+        if idx >= len(self.current_routes):
+            return
+        self.active_route_index = idx
+        if self.last_origin_id is None or self.last_destination_id is None:
+            return
+        highlighted = [self.current_routes[self.active_route_index]["path"]]
+        self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
+
+    def run_single_search(self, method, origin_id, destinations):
+        method = method.upper()
+        if method == "CUS1":
+            return cus1_ucs(self.graph, origin_id, destinations)
+        if method == "DFS":
+            return dfs_search(self.graph, origin_id, destinations)
+        if method == "BFS":
+            return bfs_search(self.graph, origin_id, destinations)
+        if method == "GBFS":
+            return gbfs_search(self.graph, origin_id, destinations, self.coords)
+        if method == "ASTAR":
+            return astar_search(self.graph, origin_id, destinations, self.coords)
+        if method == "CUS2":
+            return cus2_hcs(self.graph, origin_id, destinations, self.coords)
+        raise ValueError(f"Unknown algorithm '{method}'")
 
 
 def main():
