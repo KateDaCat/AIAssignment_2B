@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_f29cc20931c0513801e39eb1804a8cec {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+    <div style="
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 9999;
+        background: rgba(255,255,255,0.9);
+        padding: 8px 12px;
+        border: 1px solid #333;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 1.4;
+    ">
+    <b>Kuching Heritage Graph</b><br>
+    <span style="color:green;font-weight:bold;">●</span> START (1)<br>
+    <span style="color:blue;font-weight:bold;">●</span> GOAL(s) 10, 13<br>
+    <span style="color:crimson;font-weight:bold;">▬ ▬</span> Camera road (accident → time ×3.0)<br>
+    <span style="color:deepskyblue;font-weight:bold;">▬</span> Primary road<br>
+    <span style="color:gold;font-weight:bold;">▬</span> Secondary road<br>
+    <span style="color:darkorange;font-weight:bold;">▬</span> Tertiary road<br>
+    <span style="color:slategray;font-weight:bold;">▬</span> Service/local<br>
+    </div>
+    
+    
+            <div class="folium-map" id="map_f29cc20931c0513801e39eb1804a8cec" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_f29cc20931c0513801e39eb1804a8cec = L.map(
+                "map_f29cc20931c0513801e39eb1804a8cec",
+                {
+                    center: [1.5556611333333337, 110.34333993333331],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 18,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_cb255948861a14be1214c28940356533 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_cb255948861a14be1214c28940356533.addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var poly_line_42bd9f1aa387a309e51ec1f4918082e5 = L.polyline(
+                [[1.558548, 110.3406859], [1.5583429, 110.3408051], [1.5581831, 110.340894], [1.5581155, 110.3409368], [1.5582151, 110.3410665], [1.5582816, 110.341145], [1.558415, 110.3412511], [1.5583332, 110.3414597], [1.5581484, 110.3418229], [1.5580242, 110.3419693], [1.5578871, 110.3422217], [1.5578554, 110.3422887], [1.5577486, 110.3424951], [1.5576885, 110.3425964], [1.5573525, 110.3431967]],
+                {"bubblingMouseEvents": true, "color": "crimson", "dashArray": "8,4", "dashOffset": null, "fill": false, "fillColor": "crimson", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_529cbcf3f67d2fac9ced27f8bc17d47d = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_9e50b01d98f5eba8a3ee2f07598e577a = $(`<div id="html_9e50b01d98f5eba8a3ee2f07598e577a" style="width: 100.0%; height: 100.0%;"><b>Jalan Datuk Ajibah Abol</b><br>way_id: 2001<br>type: primary<br>time: 6.0 min<br><b>CAMERA MONITORED</b><br>Accident → time multiplied</div>`)[0];
+                popup_529cbcf3f67d2fac9ced27f8bc17d47d.setContent(html_9e50b01d98f5eba8a3ee2f07598e577a);
+            
+        
+
+        poly_line_42bd9f1aa387a309e51ec1f4918082e5.bindPopup(popup_529cbcf3f67d2fac9ced27f8bc17d47d)
+        ;
+
+        
+    
+    
+            poly_line_42bd9f1aa387a309e51ec1f4918082e5.bindTooltip(
+                `<div>
+                     Jalan Datuk Ajibah Abol (6.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_1a0482fee6344277eb5d6458ed876182 = L.polyline(
+                [[1.5573525, 110.3431967], [1.5576885, 110.3425964], [1.5577486, 110.3424951], [1.5578554, 110.3422887], [1.5578871, 110.3422217], [1.5580242, 110.3419693], [1.5581484, 110.3418229], [1.5583332, 110.3414597], [1.558415, 110.3412511], [1.5582816, 110.341145], [1.5582151, 110.3410665], [1.5581155, 110.3409368], [1.5581831, 110.340894], [1.5583429, 110.3408051], [1.558548, 110.3406859]],
+                {"bubblingMouseEvents": true, "color": "deepskyblue", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "deepskyblue", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_b15d579bab251ec8822c41d7f564f065 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_93c104b9444f8e19353f5e0849dde16e = $(`<div id="html_93c104b9444f8e19353f5e0849dde16e" style="width: 100.0%; height: 100.0%;"><b>Jalan Datuk Ajibah Abol</b><br>way_id: 2002<br>type: primary<br>time: 4.0 min<br></div>`)[0];
+                popup_b15d579bab251ec8822c41d7f564f065.setContent(html_93c104b9444f8e19353f5e0849dde16e);
+            
+        
+
+        poly_line_1a0482fee6344277eb5d6458ed876182.bindPopup(popup_b15d579bab251ec8822c41d7f564f065)
+        ;
+
+        
+    
+    
+            poly_line_1a0482fee6344277eb5d6458ed876182.bindTooltip(
+                `<div>
+                     Jalan Datuk Ajibah Abol (4.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_270dab1ea83a9fab6728786de7d8cfa2 = L.polyline(
+                [[1.5567016, 110.3439417], [1.5570485, 110.344158], [1.5574856, 110.3444397], [1.5576299, 110.3445116], [1.5578284, 110.3445975], [1.5580448, 110.3447166], [1.5583441, 110.3448813], [1.5585408, 110.3449896], [1.5586931, 110.3450435], [1.5588148, 110.3450865], [1.5588993, 110.3449879], [1.5589759, 110.3448564], [1.5586881, 110.3445985], [1.5586582, 110.3445937], [1.5586314, 110.3445796], [1.5586105, 110.3445577], [1.5585976, 110.3445303], [1.5585941, 110.3445002], [1.5586003, 110.3444706], [1.5586157, 110.3444445]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_dd34a9476715a38a944755c3f0b7260a = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_9372eebeba4383d0738897a158839ce7 = $(`<div id="html_9372eebeba4383d0738897a158839ce7" style="width: 100.0%; height: 100.0%;"><b>Jalan Tun Abang Haji Openg</b><br>way_id: 2003<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_dd34a9476715a38a944755c3f0b7260a.setContent(html_9372eebeba4383d0738897a158839ce7);
+            
+        
+
+        poly_line_270dab1ea83a9fab6728786de7d8cfa2.bindPopup(popup_dd34a9476715a38a944755c3f0b7260a)
+        ;
+
+        
+    
+    
+            poly_line_270dab1ea83a9fab6728786de7d8cfa2.bindTooltip(
+                `<div>
+                     Jalan Tun Abang Haji Openg (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_7cb6c7ebb781e8d2d9bc747f66af50bd = L.polyline(
+                [[1.5586157, 110.3444445], [1.5586003, 110.3444706], [1.5585941, 110.3445002], [1.5585976, 110.3445303], [1.5586105, 110.3445577], [1.5586314, 110.3445796], [1.5586582, 110.3445937], [1.5586881, 110.3445985], [1.5589759, 110.3448564], [1.5588993, 110.3449879], [1.5588148, 110.3450865], [1.5586931, 110.3450435], [1.5585408, 110.3449896], [1.5583441, 110.3448813], [1.5580448, 110.3447166], [1.5578284, 110.3445975], [1.5576299, 110.3445116], [1.5574856, 110.3444397], [1.5570485, 110.344158], [1.5567016, 110.3439417]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_6d9741d3f26fe7c5f1eee04696dc118f = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_ba793a3e5f923b48a5279b7c8890e99b = $(`<div id="html_ba793a3e5f923b48a5279b7c8890e99b" style="width: 100.0%; height: 100.0%;"><b>Jalan Tun Abang Haji Openg</b><br>way_id: 2004<br>type: secondary<br>time: 2.0 min<br></div>`)[0];
+                popup_6d9741d3f26fe7c5f1eee04696dc118f.setContent(html_ba793a3e5f923b48a5279b7c8890e99b);
+            
+        
+
+        poly_line_7cb6c7ebb781e8d2d9bc747f66af50bd.bindPopup(popup_6d9741d3f26fe7c5f1eee04696dc118f)
+        ;
+
+        
+    
+    
+            poly_line_7cb6c7ebb781e8d2d9bc747f66af50bd.bindTooltip(
+                `<div>
+                     Jalan Tun Abang Haji Openg (2.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_107aa4f27b9dd74abaec2860599ba2db = L.polyline(
+                [[1.5567354, 110.344045], [1.556739, 110.3441499], [1.5567098, 110.3442443], [1.5565133, 110.3445159], [1.556569, 110.3445734], [1.556635, 110.3446184], [1.5567342, 110.344676], [1.556781, 110.3446847], [1.5569944, 110.3446925], [1.5570624, 110.3447116]],
+                {"bubblingMouseEvents": true, "color": "darkblue", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "darkblue", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_955e3e468fde6eb1d0d1db07ced3fefd = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_65d0b676de0d16db57c4abf8b6779590 = $(`<div id="html_65d0b676de0d16db57c4abf8b6779590" style="width: 100.0%; height: 100.0%;"><b>Jalan McDougall</b><br>way_id: 2005<br>type: tertiary<br>time: 4.0 min<br></div>`)[0];
+                popup_955e3e468fde6eb1d0d1db07ced3fefd.setContent(html_65d0b676de0d16db57c4abf8b6779590);
+            
+        
+
+        poly_line_107aa4f27b9dd74abaec2860599ba2db.bindPopup(popup_955e3e468fde6eb1d0d1db07ced3fefd)
+        ;
+
+        
+    
+    
+            poly_line_107aa4f27b9dd74abaec2860599ba2db.bindTooltip(
+                `<div>
+                     Jalan McDougall (4.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_83a0096c7be878b194ae3b3c24a7c319 = L.polyline(
+                [[1.5570624, 110.3447116], [1.5569944, 110.3446925], [1.556781, 110.3446847], [1.5567342, 110.344676], [1.556635, 110.3446184], [1.556569, 110.3445734], [1.5565133, 110.3445159], [1.5567098, 110.3442443], [1.556739, 110.3441499], [1.5567354, 110.344045]],
+                {"bubblingMouseEvents": true, "color": "darkblue", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "darkblue", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_68c845ae1d7ee2c9ffaef108f10f5350 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_07900216405631b5610ae5772487b0a6 = $(`<div id="html_07900216405631b5610ae5772487b0a6" style="width: 100.0%; height: 100.0%;"><b>Jalan McDougall</b><br>way_id: 2006<br>type: tertiary<br>time: 3.0 min<br></div>`)[0];
+                popup_68c845ae1d7ee2c9ffaef108f10f5350.setContent(html_07900216405631b5610ae5772487b0a6);
+            
+        
+
+        poly_line_83a0096c7be878b194ae3b3c24a7c319.bindPopup(popup_68c845ae1d7ee2c9ffaef108f10f5350)
+        ;
+
+        
+    
+    
+            poly_line_83a0096c7be878b194ae3b3c24a7c319.bindTooltip(
+                `<div>
+                     Jalan McDougall (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_aa322928e622427d9d4fde97b7589f23 = L.polyline(
+                [[1.5570399, 110.3448477]],
+                {"bubblingMouseEvents": true, "color": "slategray", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "slategray", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_7667e0409e4f6d0ac1207013fce52725 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_53d26c24a586802c3a7ab58aee98cd87 = $(`<div id="html_53d26c24a586802c3a7ab58aee98cd87" style="width: 100.0%; height: 100.0%;"><b>Jalan McDougall (Cathedral Access)</b><br>way_id: 2007<br>type: service<br>time: 2.0 min<br></div>`)[0];
+                popup_7667e0409e4f6d0ac1207013fce52725.setContent(html_53d26c24a586802c3a7ab58aee98cd87);
+            
+        
+
+        poly_line_aa322928e622427d9d4fde97b7589f23.bindPopup(popup_7667e0409e4f6d0ac1207013fce52725)
+        ;
+
+        
+    
+    
+            poly_line_aa322928e622427d9d4fde97b7589f23.bindTooltip(
+                `<div>
+                     Jalan McDougall (Cathedral Access) (2.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_588f066d9a74eb53d30ca9afb51c39f5 = L.polyline(
+                [[1.5567016, 110.3439417], [1.5570485, 110.344158], [1.5574856, 110.3444397], [1.5576299, 110.3445116], [1.5578284, 110.3445975], [1.5580448, 110.3447166], [1.5583441, 110.3448813], [1.5585408, 110.3449896], [1.5586931, 110.3450435], [1.5588148, 110.3450865], [1.5588993, 110.3449879], [1.5589759, 110.3448564], [1.5586881, 110.3445985], [1.5587194, 110.344593]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_f5cf6aab5291d1b4113a2218fdf29cb1 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_d781c6f0bcf2f50cde9496d26e594415 = $(`<div id="html_d781c6f0bcf2f50cde9496d26e594415" style="width: 100.0%; height: 100.0%;"><b>Jalan Pearl</b><br>way_id: 2008<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_f5cf6aab5291d1b4113a2218fdf29cb1.setContent(html_d781c6f0bcf2f50cde9496d26e594415);
+            
+        
+
+        poly_line_588f066d9a74eb53d30ca9afb51c39f5.bindPopup(popup_f5cf6aab5291d1b4113a2218fdf29cb1)
+        ;
+
+        
+    
+    
+            poly_line_588f066d9a74eb53d30ca9afb51c39f5.bindTooltip(
+                `<div>
+                     Jalan Pearl (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_fed8fafb01cb24b630b9f9300555e980 = L.polyline(
+                [[1.5587194, 110.344593], [1.5586881, 110.3445985], [1.5589759, 110.3448564], [1.5588993, 110.3449879], [1.5588148, 110.3450865], [1.5586931, 110.3450435], [1.5585408, 110.3449896], [1.5583441, 110.3448813], [1.5580448, 110.3447166], [1.5578284, 110.3445975], [1.5576299, 110.3445116], [1.5574856, 110.3444397], [1.5570485, 110.344158], [1.5567016, 110.3439417]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_b20fde6863737970dd8ca5022de8889b = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_ed22697adec63b19173b2dd37ada0879 = $(`<div id="html_ed22697adec63b19173b2dd37ada0879" style="width: 100.0%; height: 100.0%;"><b>Jalan Pearl</b><br>way_id: 2009<br>type: secondary<br>time: 2.0 min<br></div>`)[0];
+                popup_b20fde6863737970dd8ca5022de8889b.setContent(html_ed22697adec63b19173b2dd37ada0879);
+            
+        
+
+        poly_line_fed8fafb01cb24b630b9f9300555e980.bindPopup(popup_b20fde6863737970dd8ca5022de8889b)
+        ;
+
+        
+    
+    
+            poly_line_fed8fafb01cb24b630b9f9300555e980.bindTooltip(
+                `<div>
+                     Jalan Pearl (2.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_6a853c06e1644d4115400ed4fc63d2aa = L.polyline(
+                [[1.558726, 110.3444188], [1.5587524, 110.3444365], [1.5587714, 110.3444619], [1.5587809, 110.3444922]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_cdbe0c52184615fb45dccdbdd801636d = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_4150cf1a33fe247ddc0f65013d2207b3 = $(`<div id="html_4150cf1a33fe247ddc0f65013d2207b3" style="width: 100.0%; height: 100.0%;"><b>Jalan Wawasan</b><br>way_id: 2010<br>type: secondary<br>time: 2.0 min<br></div>`)[0];
+                popup_cdbe0c52184615fb45dccdbdd801636d.setContent(html_4150cf1a33fe247ddc0f65013d2207b3);
+            
+        
+
+        poly_line_6a853c06e1644d4115400ed4fc63d2aa.bindPopup(popup_cdbe0c52184615fb45dccdbdd801636d)
+        ;
+
+        
+    
+    
+            poly_line_6a853c06e1644d4115400ed4fc63d2aa.bindTooltip(
+                `<div>
+                     Jalan Wawasan (2.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_56d0a0bad0ce9394fe840cf63b959093 = L.polyline(
+                [[1.5587194, 110.344593], [1.5586881, 110.3445985], [1.5589759, 110.3448564], [1.5588993, 110.3449879], [1.5588148, 110.3450865], [1.5582933, 110.3459086], [1.5581928, 110.3460816], [1.5581709, 110.3461191], [1.558162, 110.3461446], [1.5579869, 110.3468726], [1.5578281, 110.347314], [1.5576485, 110.3477437]],
+                {"bubblingMouseEvents": true, "color": "crimson", "dashArray": "8,4", "dashOffset": null, "fill": false, "fillColor": "crimson", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_0eff72307127b2f3ffb431017b131f9c = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_67c9db18dcaf839788a2431a6f0b280a = $(`<div id="html_67c9db18dcaf839788a2431a6f0b280a" style="width: 100.0%; height: 100.0%;"><b>Main Bazaar Road</b><br>way_id: 2011<br>type: primary<br>time: 7.0 min<br><b>CAMERA MONITORED</b><br>Accident → time multiplied</div>`)[0];
+                popup_0eff72307127b2f3ffb431017b131f9c.setContent(html_67c9db18dcaf839788a2431a6f0b280a);
+            
+        
+
+        poly_line_56d0a0bad0ce9394fe840cf63b959093.bindPopup(popup_0eff72307127b2f3ffb431017b131f9c)
+        ;
+
+        
+    
+    
+            poly_line_56d0a0bad0ce9394fe840cf63b959093.bindTooltip(
+                `<div>
+                     Main Bazaar Road (7.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_adb8206c775e00399b689c2bc8d0ca9f = L.polyline(
+                [[1.5567016, 110.3439417], [1.5559933, 110.3435008], [1.5557695, 110.3433708], [1.5557122, 110.3434405], [1.5552386, 110.343086], [1.5551797, 110.3431903], [1.5550976, 110.3431261], [1.5550331, 110.3432957], [1.5550319, 110.3432669], [1.5550139, 110.3432441], [1.5549935, 110.3432285], [1.5548696, 110.3431637], [1.5548395, 110.3431611], [1.5548062, 110.3431698], [1.5547776, 110.3432009]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_8331b3414d1070a5c8994750fca9c57c = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_a1d80c8f3221b83b1d17ee2cd8feff75 = $(`<div id="html_a1d80c8f3221b83b1d17ee2cd8feff75" style="width: 100.0%; height: 100.0%;"><b>Jalan Tun Abang Haji Openg</b><br>way_id: 2012<br>type: secondary<br>time: 5.0 min<br></div>`)[0];
+                popup_8331b3414d1070a5c8994750fca9c57c.setContent(html_a1d80c8f3221b83b1d17ee2cd8feff75);
+            
+        
+
+        poly_line_adb8206c775e00399b689c2bc8d0ca9f.bindPopup(popup_8331b3414d1070a5c8994750fca9c57c)
+        ;
+
+        
+    
+    
+            poly_line_adb8206c775e00399b689c2bc8d0ca9f.bindTooltip(
+                `<div>
+                     Jalan Tun Abang Haji Openg (5.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_ed359be84fb83f4c3a66687a7dd0aeb2 = L.polyline(
+                [[1.5547776, 110.3432009], [1.5548062, 110.3431698], [1.5548395, 110.3431611], [1.5548696, 110.3431637], [1.5549935, 110.3432285], [1.5550139, 110.3432441], [1.5550319, 110.3432669], [1.5550331, 110.3432957], [1.5550976, 110.3431261], [1.5551797, 110.3431903], [1.5552386, 110.343086], [1.5557122, 110.3434405], [1.5557695, 110.3433708], [1.5559933, 110.3435008], [1.5567016, 110.3439417]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_8ee876ea1b451388c2bac7b9fb827ea7 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_1c40f496b0489ee08c4b1e356975a2fd = $(`<div id="html_1c40f496b0489ee08c4b1e356975a2fd" style="width: 100.0%; height: 100.0%;"><b>Jalan Tun Abang Haji Openg</b><br>way_id: 2013<br>type: secondary<br>time: 4.0 min<br></div>`)[0];
+                popup_8ee876ea1b451388c2bac7b9fb827ea7.setContent(html_1c40f496b0489ee08c4b1e356975a2fd);
+            
+        
+
+        poly_line_ed359be84fb83f4c3a66687a7dd0aeb2.bindPopup(popup_8ee876ea1b451388c2bac7b9fb827ea7)
+        ;
+
+        
+    
+    
+            poly_line_ed359be84fb83f4c3a66687a7dd0aeb2.bindTooltip(
+                `<div>
+                     Jalan Tun Abang Haji Openg (4.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_3bbb81669b27515e16e6879ef70dec90 = L.polyline(
+                [[1.5542412, 110.3428076], [1.5542899, 110.342707], [1.5536173, 110.3425337], [1.5535354, 110.3425571], [1.5534335, 110.3425866], [1.5533665, 110.3426376], [1.5532869, 110.342702], [1.5532762, 110.3427401], [1.5532531, 110.3428223], [1.5531403, 110.3431017], [1.5530808, 110.3432285], [1.5529836, 110.3435344], [1.5529425, 110.3437022], [1.5528866, 110.343799], [1.5528829, 110.3437652], [1.5514285, 110.3438026]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_0a04485d441218dcf59f2f42f74ae9cf = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_1e8cc2d1a04e527ad4f9964747f020b6 = $(`<div id="html_1e8cc2d1a04e527ad4f9964747f020b6" style="width: 100.0%; height: 100.0%;"><b>Jalan Tun Abang Haji Openg</b><br>way_id: 2014<br>type: secondary<br>time: 4.0 min<br></div>`)[0];
+                popup_0a04485d441218dcf59f2f42f74ae9cf.setContent(html_1e8cc2d1a04e527ad4f9964747f020b6);
+            
+        
+
+        poly_line_3bbb81669b27515e16e6879ef70dec90.bindPopup(popup_0a04485d441218dcf59f2f42f74ae9cf)
+        ;
+
+        
+    
+    
+            poly_line_3bbb81669b27515e16e6879ef70dec90.bindTooltip(
+                `<div>
+                     Jalan Tun Abang Haji Openg (4.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_9126ec9675e65aa399408676458aee69 = L.polyline(
+                [[1.5514285, 110.3438026], [1.5528829, 110.3437652], [1.5528866, 110.343799], [1.5529425, 110.3437022], [1.5529836, 110.3435344], [1.5530808, 110.3432285], [1.5531403, 110.3431017], [1.5532531, 110.3428223], [1.5532762, 110.3427401], [1.5532869, 110.342702], [1.5533665, 110.3426376], [1.5534335, 110.3425866], [1.5535354, 110.3425571], [1.5536173, 110.3425337], [1.5542899, 110.342707], [1.5542412, 110.3428076]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_2b7300fc6d3dae879df04fd3b327d95c = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_0f68be7d45ac00ad529c282ec53e9595 = $(`<div id="html_0f68be7d45ac00ad529c282ec53e9595" style="width: 100.0%; height: 100.0%;"><b>Jalan Tun Abang Haji Openg</b><br>way_id: 2015<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_2b7300fc6d3dae879df04fd3b327d95c.setContent(html_0f68be7d45ac00ad529c282ec53e9595);
+            
+        
+
+        poly_line_9126ec9675e65aa399408676458aee69.bindPopup(popup_2b7300fc6d3dae879df04fd3b327d95c)
+        ;
+
+        
+    
+    
+            poly_line_9126ec9675e65aa399408676458aee69.bindTooltip(
+                `<div>
+                     Jalan Tun Abang Haji Openg (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_3c939897699634ffa23420113b7fdc8a = L.polyline(
+                [[1.5512194, 110.3439689]],
+                {"bubblingMouseEvents": true, "color": "crimson", "dashArray": "8,4", "dashOffset": null, "fill": false, "fillColor": "crimson", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_e84286ace7825aaa3293568b8962cf49 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_abec0ac98129cfa484db37c3d29c9a56 = $(`<div id="html_abec0ac98129cfa484db37c3d29c9a56" style="width: 100.0%; height: 100.0%;"><b>Jalan Taman Budaya</b><br>way_id: 2016<br>type: secondary<br>time: 5.0 min<br><b>CAMERA MONITORED</b><br>Accident → time multiplied</div>`)[0];
+                popup_e84286ace7825aaa3293568b8962cf49.setContent(html_abec0ac98129cfa484db37c3d29c9a56);
+            
+        
+
+        poly_line_3c939897699634ffa23420113b7fdc8a.bindPopup(popup_e84286ace7825aaa3293568b8962cf49)
+        ;
+
+        
+    
+    
+            poly_line_3c939897699634ffa23420113b7fdc8a.bindTooltip(
+                `<div>
+                     Jalan Taman Budaya (5.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_b4996637049c009407eae4685c28eadf = L.polyline(
+                [[1.5514285, 110.3438026]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_2c52618032f42b09dea5d62d0250df6b = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_75657c02b108f80723609ee9d8305976 = $(`<div id="html_75657c02b108f80723609ee9d8305976" style="width: 100.0%; height: 100.0%;"><b>Jalan Taman Budaya</b><br>way_id: 2017<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_2c52618032f42b09dea5d62d0250df6b.setContent(html_75657c02b108f80723609ee9d8305976);
+            
+        
+
+        poly_line_b4996637049c009407eae4685c28eadf.bindPopup(popup_2c52618032f42b09dea5d62d0250df6b)
+        ;
+
+        
+    
+    
+            poly_line_b4996637049c009407eae4685c28eadf.bindTooltip(
+                `<div>
+                     Jalan Taman Budaya (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_8b7130bca63cd5c29c004f1616ef044b = L.polyline(
+                [[1.5514285, 110.3438026]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_73bf49ff4e8fd3a6449aeab76152e10a = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_eb532ec0e75b905cfc8bd07d5de64604 = $(`<div id="html_eb532ec0e75b905cfc8bd07d5de64604" style="width: 100.0%; height: 100.0%;"><b>Jalan P. Ramlee</b><br>way_id: 2018<br>type: secondary<br>time: 4.0 min<br></div>`)[0];
+                popup_73bf49ff4e8fd3a6449aeab76152e10a.setContent(html_eb532ec0e75b905cfc8bd07d5de64604);
+            
+        
+
+        poly_line_8b7130bca63cd5c29c004f1616ef044b.bindPopup(popup_73bf49ff4e8fd3a6449aeab76152e10a)
+        ;
+
+        
+    
+    
+            poly_line_8b7130bca63cd5c29c004f1616ef044b.bindTooltip(
+                `<div>
+                     Jalan P. Ramlee (4.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_7b28aa51f3b9a201e2a6f69c166b8cbd = L.polyline(
+                [[1.5514285, 110.3438026]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_be83293ec41179db487f742533323aee = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_2739c3178e920372f62ed68e038e214f = $(`<div id="html_2739c3178e920372f62ed68e038e214f" style="width: 100.0%; height: 100.0%;"><b>Jalan P. Ramlee</b><br>way_id: 2019<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_be83293ec41179db487f742533323aee.setContent(html_2739c3178e920372f62ed68e038e214f);
+            
+        
+
+        poly_line_7b28aa51f3b9a201e2a6f69c166b8cbd.bindPopup(popup_be83293ec41179db487f742533323aee)
+        ;
+
+        
+    
+    
+            poly_line_7b28aa51f3b9a201e2a6f69c166b8cbd.bindTooltip(
+                `<div>
+                     Jalan P. Ramlee (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_c26a964848ddaa619083ef36db0be103 = L.polyline(
+                [[1.5524322, 110.3423506], [1.5524275, 110.3422728], [1.5524409, 110.3421837], [1.5528233, 110.3423282], [1.5532204, 110.3424524], [1.553332, 110.3424852], [1.5533552, 110.3423633], [1.553335, 110.342243], [1.5532971, 110.3419374]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_5f37ced3b0900c22710d3635821312cd = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_d88c9a5d779ff80bfcc422d16f3d0b82 = $(`<div id="html_d88c9a5d779ff80bfcc422d16f3d0b82" style="width: 100.0%; height: 100.0%;"><b>Jalan P. Ramlee Extension</b><br>way_id: 2020<br>type: secondary<br>time: 6.0 min<br></div>`)[0];
+                popup_5f37ced3b0900c22710d3635821312cd.setContent(html_d88c9a5d779ff80bfcc422d16f3d0b82);
+            
+        
+
+        poly_line_c26a964848ddaa619083ef36db0be103.bindPopup(popup_5f37ced3b0900c22710d3635821312cd)
+        ;
+
+        
+    
+    
+            poly_line_c26a964848ddaa619083ef36db0be103.bindTooltip(
+                `<div>
+                     Jalan P. Ramlee Extension (6.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_d279c70f24a6076881928f1b62dd64ad = L.polyline(
+                [[1.5532971, 110.3419374], [1.553335, 110.342243], [1.5533552, 110.3423633], [1.553332, 110.3424852], [1.5532204, 110.3424524], [1.5528233, 110.3423282], [1.5524409, 110.3421837], [1.5524275, 110.3422728], [1.5524322, 110.3423506]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_92f425b4ebffba01ffb287eb76fed25a = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_b7560c3f3632e4e9872efdf3b9d278aa = $(`<div id="html_b7560c3f3632e4e9872efdf3b9d278aa" style="width: 100.0%; height: 100.0%;"><b>Jalan P. Ramlee Extension</b><br>way_id: 2021<br>type: secondary<br>time: 5.0 min<br></div>`)[0];
+                popup_92f425b4ebffba01ffb287eb76fed25a.setContent(html_b7560c3f3632e4e9872efdf3b9d278aa);
+            
+        
+
+        poly_line_d279c70f24a6076881928f1b62dd64ad.bindPopup(popup_92f425b4ebffba01ffb287eb76fed25a)
+        ;
+
+        
+    
+    
+            poly_line_d279c70f24a6076881928f1b62dd64ad.bindTooltip(
+                `<div>
+                     Jalan P. Ramlee Extension (5.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_d919c05b047ca7e5635663cd57c217e2 = L.polyline(
+                [[1.5532761, 110.3417806], [1.5531603, 110.3407841]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_77acbe650adb701b9de3d1dbf43fe6ea = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_219c98817207454a79c16aae98ab14f5 = $(`<div id="html_219c98817207454a79c16aae98ab14f5" style="width: 100.0%; height: 100.0%;"><b>Jalan Taman Budaya Loop</b><br>way_id: 2022<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_77acbe650adb701b9de3d1dbf43fe6ea.setContent(html_219c98817207454a79c16aae98ab14f5);
+            
+        
+
+        poly_line_d919c05b047ca7e5635663cd57c217e2.bindPopup(popup_77acbe650adb701b9de3d1dbf43fe6ea)
+        ;
+
+        
+    
+    
+            poly_line_d919c05b047ca7e5635663cd57c217e2.bindTooltip(
+                `<div>
+                     Jalan Taman Budaya Loop (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_b4d04362db5448910070b40049027257 = L.polyline(
+                [[1.5531603, 110.3407841], [1.5532761, 110.3417806]],
+                {"bubblingMouseEvents": true, "color": "purple", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "purple", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_01759b5ac41ad434e58a2e45bbfe30ce = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_5486b5cd4f74b468cca4e52dd59f0958 = $(`<div id="html_5486b5cd4f74b468cca4e52dd59f0958" style="width: 100.0%; height: 100.0%;"><b>Jalan Taman Budaya Loop</b><br>way_id: 2023<br>type: secondary<br>time: 3.0 min<br></div>`)[0];
+                popup_01759b5ac41ad434e58a2e45bbfe30ce.setContent(html_5486b5cd4f74b468cca4e52dd59f0958);
+            
+        
+
+        poly_line_b4d04362db5448910070b40049027257.bindPopup(popup_01759b5ac41ad434e58a2e45bbfe30ce)
+        ;
+
+        
+    
+    
+            poly_line_b4d04362db5448910070b40049027257.bindTooltip(
+                `<div>
+                     Jalan Taman Budaya Loop (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_a6288c4f33949317395edc918babfdd3 = L.polyline(
+                [[1.558548, 110.3406859], [1.5583429, 110.3408051], [1.5581831, 110.340894], [1.5581155, 110.3409368], [1.5580617, 110.3408813], [1.5579846, 110.340849], [1.5578472, 110.3408213], [1.5577616, 110.3408007], [1.5576462, 110.3408144], [1.5575235, 110.3408642], [1.5574697, 110.3409121], [1.5574264, 110.3409581], [1.5573988, 110.3410911], [1.557371, 110.340883], [1.5573245, 110.3407306], [1.5572774, 110.3405893], [1.5571991, 110.340436], [1.556644, 110.3396755], [1.5564221, 110.3394138], [1.556332, 110.3395094], [1.5563098, 110.3395412], [1.5562129, 110.3398351]],
+                {"bubblingMouseEvents": true, "color": "deepskyblue", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "deepskyblue", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_72b21de829415062e722b4f9005ac4e2 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_e5852e7996fc100f0107a1702d44e641 = $(`<div id="html_e5852e7996fc100f0107a1702d44e641" style="width: 100.0%; height: 100.0%;"><b>Jalan Masjid</b><br>way_id: 2024<br>type: primary<br>time: 4.0 min<br></div>`)[0];
+                popup_72b21de829415062e722b4f9005ac4e2.setContent(html_e5852e7996fc100f0107a1702d44e641);
+            
+        
+
+        poly_line_a6288c4f33949317395edc918babfdd3.bindPopup(popup_72b21de829415062e722b4f9005ac4e2)
+        ;
+
+        
+    
+    
+            poly_line_a6288c4f33949317395edc918babfdd3.bindTooltip(
+                `<div>
+                     Jalan Masjid (4.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_767a01a297c068c01948385a845c60aa = L.polyline(
+                [[1.5562129, 110.3398351], [1.5563098, 110.3395412], [1.556332, 110.3395094], [1.5564221, 110.3394138], [1.556644, 110.3396755], [1.5571991, 110.340436], [1.5572774, 110.3405893], [1.5573245, 110.3407306], [1.557371, 110.340883], [1.5573988, 110.3410911], [1.5574264, 110.3409581], [1.5574697, 110.3409121], [1.5575235, 110.3408642], [1.5576462, 110.3408144], [1.5577616, 110.3408007], [1.5578472, 110.3408213], [1.5579846, 110.340849], [1.5580617, 110.3408813], [1.5581155, 110.3409368], [1.5581831, 110.340894], [1.5583429, 110.3408051], [1.558548, 110.3406859]],
+                {"bubblingMouseEvents": true, "color": "deepskyblue", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "deepskyblue", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_7146de7f5db5a19a905eb072735f0c38 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_6d9684178d31fb226bf593ec988b0f13 = $(`<div id="html_6d9684178d31fb226bf593ec988b0f13" style="width: 100.0%; height: 100.0%;"><b>Jalan Masjid</b><br>way_id: 2025<br>type: primary<br>time: 5.0 min<br></div>`)[0];
+                popup_7146de7f5db5a19a905eb072735f0c38.setContent(html_6d9684178d31fb226bf593ec988b0f13);
+            
+        
+
+        poly_line_767a01a297c068c01948385a845c60aa.bindPopup(popup_7146de7f5db5a19a905eb072735f0c38)
+        ;
+
+        
+    
+    
+            poly_line_767a01a297c068c01948385a845c60aa.bindTooltip(
+                `<div>
+                     Jalan Masjid (5.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_2c351422451abf63fb9222b35041ff16 = L.polyline(
+                [[1.5556273, 110.3400635], [1.5554924, 110.3400243], [1.5553846, 110.34046], [1.5553573, 110.3405704], [1.5552358, 110.3410617], [1.555123, 110.3410351], [1.5549796, 110.3410013], [1.5547274, 110.3409418], [1.5546145, 110.3409152], [1.554517, 110.3408922], [1.5544474, 110.3408758], [1.5543297, 110.340848], [1.5542717, 110.3408344], [1.553574, 110.3406698], [1.5534742, 110.3406463], [1.5531603, 110.3407841]],
+                {"bubblingMouseEvents": true, "color": "crimson", "dashArray": "8,4", "dashOffset": null, "fill": false, "fillColor": "crimson", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_f17213fd3c9d3ed02fe257b230dcb181 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_41be1310796b0b80a6d3ef0dd4399c3b = $(`<div id="html_41be1310796b0b80a6d3ef0dd4399c3b" style="width: 100.0%; height: 100.0%;"><b>Jalan Satok Connector</b><br>way_id: 2026<br>type: secondary<br>time: 8.0 min<br><b>CAMERA MONITORED</b><br>Accident → time multiplied</div>`)[0];
+                popup_f17213fd3c9d3ed02fe257b230dcb181.setContent(html_41be1310796b0b80a6d3ef0dd4399c3b);
+            
+        
+
+        poly_line_2c351422451abf63fb9222b35041ff16.bindPopup(popup_f17213fd3c9d3ed02fe257b230dcb181)
+        ;
+
+        
+    
+    
+            poly_line_2c351422451abf63fb9222b35041ff16.bindTooltip(
+                `<div>
+                     Jalan Satok Connector (8.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_8cc4de0630deedc3290e4a3f72a501f7 = L.polyline(
+                [[1.5570399, 110.3448477]],
+                {"bubblingMouseEvents": true, "color": "slategray", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "slategray", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_8094443434641f8879b24f82be1bc541 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_6f8fc13d0fe176d67e5143d5974f64d9 = $(`<div id="html_6f8fc13d0fe176d67e5143d5974f64d9" style="width: 100.0%; height: 100.0%;"><b>Jalan McDougall Inner</b><br>way_id: 2027<br>type: service<br>time: 3.0 min<br></div>`)[0];
+                popup_8094443434641f8879b24f82be1bc541.setContent(html_6f8fc13d0fe176d67e5143d5974f64d9);
+            
+        
+
+        poly_line_8cc4de0630deedc3290e4a3f72a501f7.bindPopup(popup_8094443434641f8879b24f82be1bc541)
+        ;
+
+        
+    
+    
+            poly_line_8cc4de0630deedc3290e4a3f72a501f7.bindTooltip(
+                `<div>
+                     Jalan McDougall Inner (3.0 min)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_4ce9b31b63139c0a51cb0b6ce5644edd = L.circleMarker(
+                [1.558708, 110.340547],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_232b63b7b5f5bf75283920c360a20962 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_a03b0fdee3ed8c63369c9f2531010ab2 = $(`<div id="html_a03b0fdee3ed8c63369c9f2531010ab2" style="width: 100.0%; height: 100.0%;"><b>Node 1: Masjid Bandaraya Kuching</b><br>lat: 1.558708<br>lon: 110.340547<br>START</div>`)[0];
+                popup_232b63b7b5f5bf75283920c360a20962.setContent(html_a03b0fdee3ed8c63369c9f2531010ab2);
+            
+        
+
+        circle_marker_4ce9b31b63139c0a51cb0b6ce5644edd.bindPopup(popup_232b63b7b5f5bf75283920c360a20962)
+        ;
+
+        
+    
+    
+            circle_marker_4ce9b31b63139c0a51cb0b6ce5644edd.bindTooltip(
+                `<div>
+                     1: Masjid Bandaraya Kuching (START)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_cc08836c1091cae5fbcf473598c50a54 = L.marker(
+                [1.558708, 110.340547],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_945ebeba6bbb4384164c00795693e95c = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e1: Masjid Bandaraya Kuching\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_cc08836c1091cae5fbcf473598c50a54.setIcon(div_icon_945ebeba6bbb4384164c00795693e95c);
+            
+    
+            var circle_marker_009afffa944763f2cfea04e790d53fdb = L.circleMarker(
+                [1.557014, 110.343616],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_cfef6cd9ba1e8f58bc7b1457d11b4914 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_9d4ef43bd9ccfd477e2477da208aa71a = $(`<div id="html_9d4ef43bd9ccfd477e2477da208aa71a" style="width: 100.0%; height: 100.0%;"><b>Node 2: Padang Merdeka</b><br>lat: 1.557014<br>lon: 110.343616<br>Node</div>`)[0];
+                popup_cfef6cd9ba1e8f58bc7b1457d11b4914.setContent(html_9d4ef43bd9ccfd477e2477da208aa71a);
+            
+        
+
+        circle_marker_009afffa944763f2cfea04e790d53fdb.bindPopup(popup_cfef6cd9ba1e8f58bc7b1457d11b4914)
+        ;
+
+        
+    
+    
+            circle_marker_009afffa944763f2cfea04e790d53fdb.bindTooltip(
+                `<div>
+                     2: Padang Merdeka (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_1c06944ffbf085685fd0c580dae2797b = L.marker(
+                [1.557014, 110.343616],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_c0b0b14785ac2099547c6683f530dfe3 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e2: Padang Merdeka\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_1c06944ffbf085685fd0c580dae2797b.setIcon(div_icon_c0b0b14785ac2099547c6683f530dfe3);
+            
+    
+            var circle_marker_0572410ccb867581c64b0c60905f4dce = L.circleMarker(
+                [1.558558, 110.34418],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_a52b3a5f6ae979264eea78f2d0fbc1cc = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_1928d9160524a9340c52080f66f1d33c = $(`<div id="html_1928d9160524a9340c52080f66f1d33c" style="width: 100.0%; height: 100.0%;"><b>Node 3: Plaza Merdeka</b><br>lat: 1.558558<br>lon: 110.344180<br>Node</div>`)[0];
+                popup_a52b3a5f6ae979264eea78f2d0fbc1cc.setContent(html_1928d9160524a9340c52080f66f1d33c);
+            
+        
+
+        circle_marker_0572410ccb867581c64b0c60905f4dce.bindPopup(popup_a52b3a5f6ae979264eea78f2d0fbc1cc)
+        ;
+
+        
+    
+    
+            circle_marker_0572410ccb867581c64b0c60905f4dce.bindTooltip(
+                `<div>
+                     3: Plaza Merdeka (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_d19a1a76c5476fcab5f5d2901cf2774c = L.marker(
+                [1.558558, 110.34418],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_45d1b599f1da73dc11796b5591c1f984 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e3: Plaza Merdeka\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_d19a1a76c5476fcab5f5d2901cf2774c.setIcon(div_icon_45d1b599f1da73dc11796b5591c1f984);
+            
+    
+            var circle_marker_5293087d8c21c2ce5ed62563583e7e40 = L.circleMarker(
+                [1.557108, 110.345049],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_8a86af2c0c0fec119c13b8a39e9fb82e = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_ff9b3851e7b71c59f3085ed05a5d614d = $(`<div id="html_ff9b3851e7b71c59f3085ed05a5d614d" style="width: 100.0%; height: 100.0%;"><b>Node 4: St. Thomas' Cathedral</b><br>lat: 1.557108<br>lon: 110.345049<br>Node</div>`)[0];
+                popup_8a86af2c0c0fec119c13b8a39e9fb82e.setContent(html_ff9b3851e7b71c59f3085ed05a5d614d);
+            
+        
+
+        circle_marker_5293087d8c21c2ce5ed62563583e7e40.bindPopup(popup_8a86af2c0c0fec119c13b8a39e9fb82e)
+        ;
+
+        
+    
+    
+            circle_marker_5293087d8c21c2ce5ed62563583e7e40.bindTooltip(
+                `<div>
+                     4: St. Thomas' Cathedral (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_cc37f051ce06945ef0157e0f6dbb7bb3 = L.marker(
+                [1.557108, 110.345049],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_57adaea52249e4f43d5b765852c10b7a = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e4: St. Thomas\u0027 Cathedral\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_cc37f051ce06945ef0157e0f6dbb7bb3.setIcon(div_icon_57adaea52249e4f43d5b765852c10b7a);
+            
+    
+            var circle_marker_733581a42a92e045b299e15c5605cab6 = L.circleMarker(
+                [1.55695, 110.3448],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_bfa15d4c3601978bb4975993080328d0 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_cf915b44142d71444f1c022a9224fee3 = $(`<div id="html_cf915b44142d71444f1c022a9224fee3" style="width: 100.0%; height: 100.0%;"><b>Node 5: Padang Merdeka Car Park (South Gate)</b><br>lat: 1.556950<br>lon: 110.344800<br>Node</div>`)[0];
+                popup_bfa15d4c3601978bb4975993080328d0.setContent(html_cf915b44142d71444f1c022a9224fee3);
+            
+        
+
+        circle_marker_733581a42a92e045b299e15c5605cab6.bindPopup(popup_bfa15d4c3601978bb4975993080328d0)
+        ;
+
+        
+    
+    
+            circle_marker_733581a42a92e045b299e15c5605cab6.bindTooltip(
+                `<div>
+                     5: Padang Merdeka Car Park (South Gate) (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_35bc63c1ed88390cfe82a042c93a8688 = L.marker(
+                [1.55695, 110.3448],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_5e8972ce765e0007b7865bf8c84b64ba = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e5: Padang Merdeka Car Park (South Gate)\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_35bc63c1ed88390cfe82a042c93a8688.setIcon(div_icon_5e8972ce765e0007b7865bf8c84b64ba);
+            
+    
+            var circle_marker_83e8ff6f20aa90a69eea5eefdcecf331 = L.circleMarker(
+                [1.558856, 110.344629],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_8a23f4a5af2481dc48483e341f39959c = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_d16baf4ad7f552e0d2597703ebdebadc = $(`<div id="html_d16baf4ad7f552e0d2597703ebdebadc" style="width: 100.0%; height: 100.0%;"><b>Node 6: Old Courthouse Auditorium</b><br>lat: 1.558856<br>lon: 110.344629<br>Node</div>`)[0];
+                popup_8a23f4a5af2481dc48483e341f39959c.setContent(html_d16baf4ad7f552e0d2597703ebdebadc);
+            
+        
+
+        circle_marker_83e8ff6f20aa90a69eea5eefdcecf331.bindPopup(popup_8a23f4a5af2481dc48483e341f39959c)
+        ;
+
+        
+    
+    
+            circle_marker_83e8ff6f20aa90a69eea5eefdcecf331.bindTooltip(
+                `<div>
+                     6: Old Courthouse Auditorium (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_e1c2ad0280b85b94fbf1834b57f33228 = L.marker(
+                [1.558856, 110.344629],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_1db65a8b603b9be5e41fb5a67cf5489d = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e6: Old Courthouse Auditorium\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_e1c2ad0280b85b94fbf1834b57f33228.setIcon(div_icon_1db65a8b603b9be5e41fb5a67cf5489d);
+            
+    
+            var circle_marker_481dec95087ac2ee527bd46576e70988 = L.circleMarker(
+                [1.5583, 110.3432],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_e7e77fe811d93027154310d1102a0270 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_e310a592755090b4600776c7003076e2 = $(`<div id="html_e310a592755090b4600776c7003076e2" style="width: 100.0%; height: 100.0%;"><b>Node 7: Jalan Pearl Junction</b><br>lat: 1.558300<br>lon: 110.343200<br>Node</div>`)[0];
+                popup_e7e77fe811d93027154310d1102a0270.setContent(html_e310a592755090b4600776c7003076e2);
+            
+        
+
+        circle_marker_481dec95087ac2ee527bd46576e70988.bindPopup(popup_e7e77fe811d93027154310d1102a0270)
+        ;
+
+        
+    
+    
+            circle_marker_481dec95087ac2ee527bd46576e70988.bindTooltip(
+                `<div>
+                     7: Jalan Pearl Junction (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_db0036e2f999dca79bd93caf73ee05ed = L.marker(
+                [1.5583, 110.3432],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_1a22949dd7948aa13930e1e667a7cb5d = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e7: Jalan Pearl Junction\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_db0036e2f999dca79bd93caf73ee05ed.setIcon(div_icon_1a22949dd7948aa13930e1e667a7cb5d);
+            
+    
+            var circle_marker_4179f4116e42e8d06c036425c1324bb0 = L.circleMarker(
+                [1.554494, 110.343009],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_942675f5adfdbf1396cacfe2166d0514 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_ef5e98c0786cfc548f4482513ad30268 = $(`<div id="html_ef5e98c0786cfc548f4482513ad30268" style="width: 100.0%; height: 100.0%;"><b>Node 8: Haji Openg Junction</b><br>lat: 1.554494<br>lon: 110.343009<br>Node</div>`)[0];
+                popup_942675f5adfdbf1396cacfe2166d0514.setContent(html_ef5e98c0786cfc548f4482513ad30268);
+            
+        
+
+        circle_marker_4179f4116e42e8d06c036425c1324bb0.bindPopup(popup_942675f5adfdbf1396cacfe2166d0514)
+        ;
+
+        
+    
+    
+            circle_marker_4179f4116e42e8d06c036425c1324bb0.bindTooltip(
+                `<div>
+                     8: Haji Openg Junction (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_9c13c95d893efbfe2dadce28491fd825 = L.marker(
+                [1.554494, 110.343009],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_5fb94e1d76841a1f1fb5d903fb0c7505 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e8: Haji Openg Junction\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_9c13c95d893efbfe2dadce28491fd825.setIcon(div_icon_5fb94e1d76841a1f1fb5d903fb0c7505);
+            
+    
+            var circle_marker_828ef57c4a9dcfd3b9ec5ff567679fe7 = L.circleMarker(
+                [1.551219, 110.343969],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_81f2f73fc55de606fd91d7677f065cce = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_652f7ba100dde7e3f6a852523b54fd9d = $(`<div id="html_652f7ba100dde7e3f6a852523b54fd9d" style="width: 100.0%; height: 100.0%;"><b>Node 9: Sarawak Museum Admin Building</b><br>lat: 1.551219<br>lon: 110.343969<br>Node</div>`)[0];
+                popup_81f2f73fc55de606fd91d7677f065cce.setContent(html_652f7ba100dde7e3f6a852523b54fd9d);
+            
+        
+
+        circle_marker_828ef57c4a9dcfd3b9ec5ff567679fe7.bindPopup(popup_81f2f73fc55de606fd91d7677f065cce)
+        ;
+
+        
+    
+    
+            circle_marker_828ef57c4a9dcfd3b9ec5ff567679fe7.bindTooltip(
+                `<div>
+                     9: Sarawak Museum Admin Building (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_f8e770d69e6593073cbf95b90b16e092 = L.marker(
+                [1.551219, 110.343969],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_ae6573c5e958c32f8c485563f8dae3fa = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e9: Sarawak Museum Admin Building\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_f8e770d69e6593073cbf95b90b16e092.setIcon(div_icon_ae6573c5e958c32f8c485563f8dae3fa);
+            
+    
+            var circle_marker_1d98e978141f0634eb5d97ee6708647c = L.circleMarker(
+                [1.55191, 110.3435],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "blue", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_22c44ab7c91bd76c027032ffcc7308a9 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_2853f96d4a09e281aa4893ff7da66e0d = $(`<div id="html_2853f96d4a09e281aa4893ff7da66e0d" style="width: 100.0%; height: 100.0%;"><b>Node 10: Sarawak Museum (Old Building)</b><br>lat: 1.551910<br>lon: 110.343500<br>GOAL</div>`)[0];
+                popup_22c44ab7c91bd76c027032ffcc7308a9.setContent(html_2853f96d4a09e281aa4893ff7da66e0d);
+            
+        
+
+        circle_marker_1d98e978141f0634eb5d97ee6708647c.bindPopup(popup_22c44ab7c91bd76c027032ffcc7308a9)
+        ;
+
+        
+    
+    
+            circle_marker_1d98e978141f0634eb5d97ee6708647c.bindTooltip(
+                `<div>
+                     10: Sarawak Museum (Old Building) (GOAL)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_24d5bd21874503373afc411502d9008f = L.marker(
+                [1.55191, 110.3435],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_0cd36a8f7ed602eabfd1bd4f1e1db148 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e10: Sarawak Museum (Old Building)\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_24d5bd21874503373afc411502d9008f.setIcon(div_icon_0cd36a8f7ed602eabfd1bd4f1e1db148);
+            
+    
+            var circle_marker_c0483d12f0382edfca8b8654e02d25dd = L.circleMarker(
+                [1.55145, 110.3428],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_a3ac3281774bb458f09c56abf7710e3b = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_5ba57660a52549ec005a847176573a8c = $(`<div id="html_5ba57660a52549ec005a847176573a8c" style="width: 100.0%; height: 100.0%;"><b>Node 11: Sarawak Islamic Heritage Museum</b><br>lat: 1.551450<br>lon: 110.342800<br>Node</div>`)[0];
+                popup_a3ac3281774bb458f09c56abf7710e3b.setContent(html_5ba57660a52549ec005a847176573a8c);
+            
+        
+
+        circle_marker_c0483d12f0382edfca8b8654e02d25dd.bindPopup(popup_a3ac3281774bb458f09c56abf7710e3b)
+        ;
+
+        
+    
+    
+            circle_marker_c0483d12f0382edfca8b8654e02d25dd.bindTooltip(
+                `<div>
+                     11: Sarawak Islamic Heritage Museum (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_e7ea9bea3532cca26fc58a48b1c02b33 = L.marker(
+                [1.55145, 110.3428],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_840feb256539961b69cc4235248489d7 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e11: Sarawak Islamic Heritage Museum\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_e7ea9bea3532cca26fc58a48b1c02b33.setIcon(div_icon_840feb256539961b69cc4235248489d7);
+            
+    
+            var circle_marker_7231f523a4587e513b6a8d9f2508ca67 = L.circleMarker(
+                [1.5534, 110.3419],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_4c43ea281cfa7a2a10b76415680959c3 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_21a971f42782eec9f1606ecba7b06928 = $(`<div id="html_21a971f42782eec9f1606ecba7b06928" style="width: 100.0%; height: 100.0%;"><b>Node 12: Sarawak Art Museum</b><br>lat: 1.553400<br>lon: 110.341900<br>Node</div>`)[0];
+                popup_4c43ea281cfa7a2a10b76415680959c3.setContent(html_21a971f42782eec9f1606ecba7b06928);
+            
+        
+
+        circle_marker_7231f523a4587e513b6a8d9f2508ca67.bindPopup(popup_4c43ea281cfa7a2a10b76415680959c3)
+        ;
+
+        
+    
+    
+            circle_marker_7231f523a4587e513b6a8d9f2508ca67.bindTooltip(
+                `<div>
+                     12: Sarawak Art Museum (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_8c122439ce42ed4e2132ff5b29e0882d = L.marker(
+                [1.5534, 110.3419],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_50ecb08c905d4af7cd1db1779f591376 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e12: Sarawak Art Museum\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_8c122439ce42ed4e2132ff5b29e0882d.setIcon(div_icon_50ecb08c905d4af7cd1db1779f591376);
+            
+    
+            var circle_marker_67dc2db3c9ce2236e3b6dfc0cfd8f0b6 = L.circleMarker(
+                [1.55795, 110.3479],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "blue", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_8769c0929c5c1e143167e99ba7028de0 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_3993072541b40721078e240903d3bd59 = $(`<div id="html_3993072541b40721078e240903d3bd59" style="width: 100.0%; height: 100.0%;"><b>Node 13: Kuching Waterfront Jetty</b><br>lat: 1.557950<br>lon: 110.347900<br>GOAL</div>`)[0];
+                popup_8769c0929c5c1e143167e99ba7028de0.setContent(html_3993072541b40721078e240903d3bd59);
+            
+        
+
+        circle_marker_67dc2db3c9ce2236e3b6dfc0cfd8f0b6.bindPopup(popup_8769c0929c5c1e143167e99ba7028de0)
+        ;
+
+        
+    
+    
+            circle_marker_67dc2db3c9ce2236e3b6dfc0cfd8f0b6.bindTooltip(
+                `<div>
+                     13: Kuching Waterfront Jetty (GOAL)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_b58189cc0266176d082bb03786e6bd09 = L.marker(
+                [1.55795, 110.3479],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_e8fa36a858d0989e8b85210c9699ca3d = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e13: Kuching Waterfront Jetty\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_b58189cc0266176d082bb03786e6bd09.setIcon(div_icon_e8fa36a858d0989e8b85210c9699ca3d);
+            
+    
+            var circle_marker_a994510ca86b2f72ed7feb4b33342e02 = L.circleMarker(
+                [1.556, 110.3402],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_471bcdb35b3727dff595b10e0c0acf38 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_6896612362bedec455a40719bcd24174 = $(`<div id="html_6896612362bedec455a40719bcd24174" style="width: 100.0%; height: 100.0%;"><b>Node 14: Wisma Hopoh</b><br>lat: 1.556000<br>lon: 110.340200<br>Node</div>`)[0];
+                popup_471bcdb35b3727dff595b10e0c0acf38.setContent(html_6896612362bedec455a40719bcd24174);
+            
+        
+
+        circle_marker_a994510ca86b2f72ed7feb4b33342e02.bindPopup(popup_471bcdb35b3727dff595b10e0c0acf38)
+        ;
+
+        
+    
+    
+            circle_marker_a994510ca86b2f72ed7feb4b33342e02.bindTooltip(
+                `<div>
+                     14: Wisma Hopoh (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_08e1d239a7f28307e45ddbfc85fd7d8b = L.marker(
+                [1.556, 110.3402],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_6f9ce715d31181fef99b217c6a9a56fe = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e14: Wisma Hopoh\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_08e1d239a7f28307e45ddbfc85fd7d8b.setIcon(div_icon_6f9ce715d31181fef99b217c6a9a56fe);
+            
+    
+            var circle_marker_aabfb20d05ecf588aba33498fedc056b = L.circleMarker(
+                [1.553, 110.3408],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "white", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 1}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+        var popup_c6024f54bcdc8597fee8eb1b33700fd4 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_aac0a4378dcaffc31efc81473b688e0b = $(`<div id="html_aac0a4378dcaffc31efc81473b688e0b" style="width: 100.0%; height: 100.0%;"><b>Node 15: Heroes Monument</b><br>lat: 1.553000<br>lon: 110.340800<br>Node</div>`)[0];
+                popup_c6024f54bcdc8597fee8eb1b33700fd4.setContent(html_aac0a4378dcaffc31efc81473b688e0b);
+            
+        
+
+        circle_marker_aabfb20d05ecf588aba33498fedc056b.bindPopup(popup_c6024f54bcdc8597fee8eb1b33700fd4)
+        ;
+
+        
+    
+    
+            circle_marker_aabfb20d05ecf588aba33498fedc056b.bindTooltip(
+                `<div>
+                     15: Heroes Monument (Node)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_3ce18903118670d7306c9833763f5529 = L.marker(
+                [1.553, 110.3408],
+                {
+}
+            ).addTo(map_f29cc20931c0513801e39eb1804a8cec);
+        
+    
+            var div_icon_bc09db669530e0d0c3370f60e98ee1b0 = L.divIcon({
+  "html": "\n                \u003cdiv style=\"\n                    font-size:10px;\n                    font-weight:bold;\n                    color:black;\n                    background-color:rgba(255,255,255,0.8);\n                    border:1px solid black;\n                    border-radius:3px;\n                    padding:2px 3px;\n                    white-space:nowrap;\n                \"\u003e15: Heroes Monument\u003c/div\u003e\n                ",
+  "className": "empty",
+});
+        
+    
+                marker_3ce18903118670d7306c9833763f5529.setIcon(div_icon_bc09db669530e0d0c3370f60e98ee1b0);
+            
+</script>
+</html>

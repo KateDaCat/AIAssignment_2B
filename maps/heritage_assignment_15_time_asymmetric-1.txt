@@ -1,0 +1,95 @@
+[NODES]
+1,1.558708,110.340547,Masjid Bandaraya Kuching
+2,1.557014,110.343616,Padang Merdeka
+3,1.558558,110.344180,Plaza Merdeka
+4,1.557108,110.345049,St. Thomas' Cathedral
+5,1.556950,110.344800,Padang Merdeka Car Park (South Gate)
+6,1.558856,110.344629,Old Courthouse Auditorium
+7,1.558300,110.343200,Jalan Pearl Junction
+8,1.554494,110.343009,Haji Openg Junction
+9,1.551219,110.343969,Sarawak Museum Admin Building
+10,1.551910,110.343500,Sarawak Museum (Old Building)
+11,1.551450,110.342800,Sarawak Islamic Heritage Museum
+12,1.553400,110.341900,Sarawak Art Museum
+13,1.557950,110.347900,Kuching Waterfront Jetty
+14,1.556000,110.340200,Wisma Hopoh
+15,1.553000,110.340800,Heroes Monument
+
+[WAYS]
+# way_id,from_node,to_node,road_name,highway_type,travel_time_min
+
+# Masjid ↔ Padang (slower going towards Padang, e.g. uphill / traffic)
+2001,1,2,Jalan Datuk Ajibah Abol,primary,6
+2002,2,1,Jalan Datuk Ajibah Abol,primary,4
+
+# Padang ↔ Plaza (slightly asymmetric)
+2003,2,3,Jalan Tun Abang Haji Openg,secondary,3
+2004,3,2,Jalan Tun Abang Haji Openg,secondary,2
+
+# Padang ↔ Cathedral (Cathedral-bound direction a bit slower)
+2005,2,4,Jalan McDougall,tertiary,4
+2006,4,2,Jalan McDougall,tertiary,3
+
+# Cathedral → Padang Car Park (internal one-way, short but slow)
+2007,4,5,Jalan McDougall (Cathedral Access),service,2
+# no reverse edge (car park exit handled by 2027 below)
+
+# Padang ↔ Courthouse via Pearl (Courthouse-bound direction a bit slower)
+2008,2,6,Jalan Pearl,secondary,3
+2009,6,2,Jalan Pearl,secondary,2
+
+# Plaza → Courthouse (mall to courthouse, one-way)
+2010,3,6,Jalan Wawasan,secondary,2
+# no reverse edge
+
+# Courthouse → Jetty (busy waterfront, relatively long)
+2011,6,13,Main Bazaar Road,primary,7
+# no reverse edge
+
+# Padang ↔ Haji Openg Junction (junction-bound slightly slower)
+2012,2,8,Jalan Tun Abang Haji Openg,secondary,5
+2013,8,2,Jalan Tun Abang Haji Openg,secondary,4
+
+# Haji Openg ↔ Museum Admin (museum-bound slower)
+2014,8,9,Jalan Tun Abang Haji Openg,secondary,4
+2015,9,8,Jalan Tun Abang Haji Openg,secondary,3
+
+# Museum Admin ↔ Old Museum (admin → old museum slower, small streets)
+2016,9,10,Jalan Taman Budaya,secondary,5
+2017,10,9,Jalan Taman Budaya,secondary,3
+
+# Museum Admin ↔ Islamic Heritage Museum
+2018,9,11,Jalan P. Ramlee,secondary,4
+2019,11,9,Jalan P. Ramlee,secondary,3
+
+# Islamic Heritage ↔ Art Museum (longish stretch)
+2020,11,12,Jalan P. Ramlee Extension,secondary,6
+2021,12,11,Jalan P. Ramlee Extension,secondary,5
+
+# Art Museum ↔ Heroes Monument (fairly similar both ways)
+2022,12,15,Jalan Taman Budaya Loop,secondary,3
+2023,15,12,Jalan Taman Budaya Loop,secondary,3
+
+# Masjid ↔ Wisma Hopoh (evening return slower)
+2024,1,14,Jalan Masjid,primary,4
+2025,14,1,Jalan Masjid,primary,5
+
+# Wisma Hopoh → Heroes Monument (one-way connector, fairly long)
+2026,14,15,Jalan Satok Connector,secondary,8
+# no reverse edge
+
+# Car Park → Cathedral (exit route, a bit slower than entry)
+2027,5,4,Jalan McDougall Inner,service,3
+# no reverse edge
+
+[CAMERAS]
+# monitored roads (accident ⇒ time × ACCIDENT_MULTIPLIER)
+2001,images/cam_ajibah_abol.jpg
+2011,images/cam_main_bazaar.jpg
+2016,images/cam_taman_budaya.jpg
+2026,images/cam_satok_connector.jpg
+
+[META]
+START,1
+GOAL,10,13
+ACCIDENT_MULTIPLIER,3
