@@ -1,0 +1,17 @@
+{
+  "image": "kuching_heritage.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12282818.949201543,
+    "xmax": 12284041.941654105,
+    "ymin": 172441.93581135606,
+    "ymax": 173970.67637706135
+  },
+  "bounds": {
+    "west": 110.3394138,
+    "east": 110.3480907,
+    "south": 1.551219,
+    "north": 1.5604209
+  },
+  "zoom": 17
+}
