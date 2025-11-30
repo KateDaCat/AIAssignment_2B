@@ -221,7 +221,8 @@ class OSMSpec:
     landmarks: Dict[str, Tuple[float, float]]
     origin_name: str
     destination_names: List[str]
-    accident_road: str
+    connections: List[Tuple[str, str]]
+    accident_connection: Tuple[str, str]
     accident_severity: str
     accident_multiplier: float
     zoom: int = 16
@@ -334,33 +335,6 @@ def slice_graph(G, bbox: Tuple[float, float, float, float]):
     return sub.subgraph(largest_nodes).copy()
 
 
-def reindex_graph(G) -> Tuple[Dict[int, Tuple[float, float]], Dict[Tuple[int, int], float], Dict[int, int]]:
-    node_map: Dict[int, int] = {}
-    nodes: Dict[int, Tuple[float, float]] = {}
-    for new_id, (node_id, data) in enumerate(sorted(G.nodes(data=True)), start=1):
-        node_map[node_id] = new_id
-        nodes[new_id] = (data["x"], data["y"])
-
-    edges: Dict[Tuple[int, int], float] = {}
-    for u, v, _key, data in G.edges(keys=True, data=True):
-        travel_time = data.get("travel_time")
-        if travel_time is None:
-            length = data.get("length", 0)
-            if not length:
-                continue
-            # assume 40 km/h when speed missing
-            travel_time = (length / 1000) / 40 * 3600
-        cost_hours = travel_time / 3600.0
-        if not math.isfinite(cost_hours):
-            continue
-        new_u = node_map[u]
-        new_v = node_map[v]
-        key = (new_u, new_v)
-        if key not in edges or cost_hours < edges[key]:
-            edges[key] = cost_hours
-    return nodes, edges, node_map
-
-
 def nearest_node_simple(G, lat: float, lon: float):
     best = None
     best_dist = float("inf")
@@ -376,31 +350,75 @@ def nearest_node_simple(G, lat: float, lon: float):
     return best
 
 
-def map_landmarks(G, node_map, landmarks_spec: Dict[str, Tuple[float, float]]):
-    mapped: Dict[int, str] = {}
+def map_landmarks(G, landmarks_spec: Dict[str, Tuple[float, float]]):
+    mapped: Dict[str, int] = {}
     for name, (lat, lon) in landmarks_spec.items():
         nearest = nearest_node_simple(G, lat, lon)
         if nearest is None:
             continue
-        if nearest not in node_map:
-            continue
-        mapped[node_map[nearest]] = name
+        mapped[name] = nearest
     return mapped
 
 
-def pick_accident_edge(G, node_map, road_name: str):
-    road_name_lower = road_name.lower()
-    for u, v, _key, data in G.edges(keys=True, data=True):
-        name = data.get("name")
-        if not name:
-            continue
-        if road_name_lower in name.lower():
-            travel_time = data.get("travel_time")
-            if travel_time is None:
+def build_connection_graph(
+    G,
+    *,
+    spec: OSMSpec,
+    name_to_node: Dict[str, int],
+) -> Tuple[Dict[int, Tuple[float, float]], Dict[Tuple[int, int], float], Dict[int, str], Dict[str, int]]:
+    if not name_to_node:
+        raise ValueError("No landmarks mapped to OSM nodes.")
+
+    # Build a weighted simple DiGraph for shortest-path queries
+    weighted = nx.DiGraph()
+    for u, v, data in G.edges(data=True):
+        travel_time = data.get("travel_time")
+        if travel_time is None:
+            length = data.get("length", 0)
+            if not length:
                 continue
-            base_cost = travel_time / 3600.0
-            return (node_map[u], node_map[v]), base_cost
-    return None, None
+            travel_time = (length / 1000.0) / 40.0 * 3600.0
+        travel_time = float(travel_time)
+        if not math.isfinite(travel_time) or travel_time < 0:
+            continue
+        existing = weighted.get_edge_data(u, v)
+        if existing is None or travel_time < existing["weight"]:
+            weighted.add_edge(u, v, weight=travel_time)
+
+    nodes: Dict[int, Tuple[float, float]] = {}
+    landmarks: Dict[int, str] = {}
+    name_to_newid: Dict[str, int] = {}
+    for idx, name in enumerate(spec.landmarks.keys(), start=1):
+        original = name_to_node.get(name)
+        if original is None:
+            continue
+        data = G.nodes[original]
+        nodes[idx] = (data["x"], data["y"])
+        landmarks[idx] = name
+        name_to_newid[name] = idx
+
+    edges: Dict[Tuple[int, int], float] = {}
+    for name_a, name_b in spec.connections:
+        if name_a not in name_to_newid or name_b not in name_to_newid:
+            print(f"[warn] Connection uses unknown landmark ({name_a} -> {name_b})")
+            continue
+        origin_node = name_to_node.get(name_a)
+        target_node = name_to_node.get(name_b)
+        if origin_node is None or target_node is None:
+            print(f"[warn] Unable to map connection ({name_a} -> {name_b}) to OSM nodes")
+            continue
+        try:
+            cost_seconds = nx.shortest_path_length(
+                weighted, origin_node, target_node, weight="weight"
+            )
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            print(f"[warn] No path between {name_a} and {name_b}")
+            continue
+        new_u = name_to_newid[name_a]
+        new_v = name_to_newid[name_b]
+        edges[(new_u, new_v)] = cost_seconds / 3600.0
+
+    return nodes, edges, landmarks, name_to_newid
 
 
 def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
@@ -413,26 +431,31 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
             spec.bbox[3],
         ),
     )
-    nodes, edges, node_map = reindex_graph(sub)
-    landmark_nodes = map_landmarks(sub, node_map, spec.landmarks)
-    if not landmark_nodes:
-        raise ValueError(f"No landmarks landed inside bbox for {spec.name}")
+    name_to_node = map_landmarks(sub, spec.landmarks)
+    if len(name_to_node) < len(spec.landmarks):
+        missing = set(spec.landmarks) - set(name_to_node)
+        print(f"[warn] Could not map landmarks for {spec.name}: {', '.join(missing)}")
 
-    def resolve(name: str) -> int:
-        for node_id, label in landmark_nodes.items():
-            if label == name:
-                return node_id
-        raise ValueError(f"Landmark '{name}' not found in map {spec.name}")
+    nodes, edges, landmark_map, name_to_newid = build_connection_graph(
+        sub, spec=spec, name_to_node=name_to_node
+    )
+    if not nodes or not edges:
+        raise ValueError(f"Simplified graph for {spec.name} is empty.")
 
-    origin = resolve(spec.origin_name)
-    destinations = [resolve(name) for name in spec.destination_names]
+    def resolve_newid(name: str) -> int:
+        node_id = name_to_newid.get(name)
+        if node_id is None:
+            raise ValueError(f"Landmark '{name}' not mapped in {spec.name}")
+        return node_id
 
-    accident_edge, accident_base = pick_accident_edge(sub, node_map, spec.accident_road)
-    if accident_edge is None:
-        # fallback: pick first edge
-        (u, v), cost = next(iter(edges.items()))
+    origin = resolve_newid(spec.origin_name)
+    destinations = [resolve_newid(name) for name in spec.destination_names]
+
+    accident_edge = tuple(resolve_newid(name) for name in spec.accident_connection)
+    accident_base = edges.get(accident_edge)
+    if accident_base is None:
+        (u, v), accident_base = next(iter(edges.items()))
         accident_edge = (u, v)
-        accident_base = cost
 
     write_ics(
         dest,
@@ -440,7 +463,7 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
         edges=edges,
         origin=origin,
         destinations=destinations,
-        landmarks=landmark_nodes,
+        landmarks=landmark_map,
         accident_edge=accident_edge,
         accident_severity=spec.accident_severity,
         accident_multiplier=spec.accident_multiplier,
@@ -491,14 +514,28 @@ def main():
                 },
                 origin_name="Padang Merdeka",
                 destination_names=["Carpenter Street", "Kuching Waterfront"],
-                accident_road="Jalan Tun Abang Haji Openg",
+                connections=[
+                    ("Padang Merdeka", "Old Courthouse Auditorium"),
+                    ("Old Courthouse Auditorium", "Padang Merdeka"),
+                    ("Old Courthouse Auditorium", "Kuching Waterfront"),
+                    ("Kuching Waterfront", "Old Courthouse Auditorium"),
+                    ("Padang Merdeka", "Carpenter Street"),
+                    ("Carpenter Street", "Padang Merdeka"),
+                    ("Carpenter Street", "Kuching Waterfront"),
+                    ("Kuching Waterfront", "Carpenter Street"),
+                    ("Padang Merdeka", "Simpang Tiga Interchange"),
+                    ("Simpang Tiga Interchange", "Padang Merdeka"),
+                    ("Simpang Tiga Interchange", "Kuching Waterfront"),
+                    ("Kuching Waterfront", "Simpang Tiga Interchange"),
+                ],
+                accident_connection=("Padang Merdeka", "Old Courthouse Auditorium"),
                 accident_severity="Moderate",
                 accident_multiplier=1.3,
                 zoom=16,
             ),
             OSMSpec(
                 name="kuching_museum_loop_osm",
-                bbox=(1.5505, 1.5555, 110.3390, 110.3455),
+                bbox=(1.5500, 1.5585, 110.3390, 110.3455),
                 landmarks={
                     "Sarawak Museum": (1.551910, 110.343500),
                     "Sarawak Islamic Heritage Museum": (1.551450, 110.342800),
@@ -508,7 +545,19 @@ def main():
                 },
                 origin_name="Sarawak Museum",
                 destination_names=["Padang Merdeka", "Sarawak Islamic Heritage Museum"],
-                accident_road="Jalan Taman Budaya",
+                connections=[
+                    ("Sarawak Museum", "Sarawak Islamic Heritage Museum"),
+                    ("Sarawak Islamic Heritage Museum", "Sarawak Museum"),
+                    ("Sarawak Museum", "Padang Merdeka"),
+                    ("Padang Merdeka", "Sarawak Museum"),
+                    ("Sarawak Art Museum", "Padang Merdeka"),
+                    ("Padang Merdeka", "Sarawak Art Museum"),
+                    ("Sarawak Art Museum", "Heroes Monument"),
+                    ("Heroes Monument", "Sarawak Art Museum"),
+                    ("Sarawak Islamic Heritage Museum", "Padang Merdeka"),
+                    ("Padang Merdeka", "Sarawak Islamic Heritage Museum"),
+                ],
+                accident_connection=("Sarawak Museum", "Sarawak Islamic Heritage Museum"),
                 accident_severity="Severe",
                 accident_multiplier=1.5,
                 zoom=17,
