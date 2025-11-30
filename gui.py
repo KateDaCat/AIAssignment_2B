@@ -347,17 +347,27 @@ class ICS_GUI:
                 for i in range(len(path) - 1):
                     highlighted_edges.add((path[i], path[i + 1]))
 
+        # Pass 1: draw base edges
         for u, neighbors in self.graph.items():
             for v, _ in neighbors:
                 polyline = self.edge_polylines.get((u, v))
                 if polyline:
-                    self.draw_polyline(polyline, is_highlighted=(u, v) in highlighted_edges)
-                    continue
+                    self.draw_polyline(polyline, is_highlighted=False)
+                else:
+                    x1, y1 = self.canvas_points.get(u, (0, 0))
+                    x2, y2 = self.canvas_points.get(v, (0, 0))
+                    self.map_canvas.create_line(x1, y1, x2, y2, fill="#d0d0d0", width=2)
+
+        # Pass 2: draw highlighted edges on top
+        for edge in highlighted_edges:
+            u, v = edge
+            polyline = self.edge_polylines.get(edge)
+            if polyline:
+                self.draw_polyline(polyline, is_highlighted=True)
+            else:
                 x1, y1 = self.canvas_points.get(u, (0, 0))
                 x2, y2 = self.canvas_points.get(v, (0, 0))
-                color = "#ff8c42" if (u, v) in highlighted_edges else "#d0d0d0"
-                width = 4 if (u, v) in highlighted_edges else 2
-                self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
+                self.map_canvas.create_line(x1, y1, x2, y2, fill="#ff8c42", width=4)
 
         for node, (x, y) in self.canvas_points.items():
             fill = "#0077b6"
