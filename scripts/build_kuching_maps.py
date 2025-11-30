@@ -212,6 +212,9 @@ def convert_heritage(src: Path, dest: Path) -> None:
         meta_path=meta_path,
         zoom=17,
     )
+    poly_path = dest.with_suffix(".paths.json")
+    empty_payload: Dict[str, List[Dict[str, float]]] = {}
+    poly_path.write_text(json.dumps(empty_payload, indent=2), encoding="utf-8")
 
 
 @dataclass
