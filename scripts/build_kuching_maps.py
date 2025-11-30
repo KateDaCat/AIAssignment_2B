@@ -255,6 +255,7 @@ def generate_basemap_image(
             north,
             zoom=zoom,
             source=cx.providers.OpenStreetMap.Mapnik,
+            ll=True,
         )
     except Exception as exc:
         print(f"[warn] Failed to fetch basemap tiles: {exc}")
