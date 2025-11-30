@@ -726,8 +726,7 @@ class ICS_GUI:
         self.current_routes = [{"path": path, "cost": cost}]
         self.active_route_index = 0
 
-        highlighted = [self.current_routes[self.active_route_index]["path"]]
-        self.draw_map(highlighted, origin_id, destination_id)
+        self.draw_map(None, origin_id, destination_id)
         self.update_route_selector()
         self.start_animation()
 
@@ -780,8 +779,7 @@ class ICS_GUI:
         self.active_route_index = idx
         if self.last_origin_id is None or self.last_destination_id is None:
             return
-        highlighted = [self.current_routes[self.active_route_index]["path"]]
-        self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
+        self.draw_map(None, self.last_origin_id, self.last_destination_id)
         if self.current_routes:
             self.route_choice_var.set(f"Route {idx + 1} ({self.current_routes[idx]['cost']:.4f} h)")
         self.start_animation()
