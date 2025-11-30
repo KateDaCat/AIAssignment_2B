@@ -341,11 +341,11 @@ class ICS_GUI:
             )
             return
 
-        highlighted_edges = set()
+        highlighted_edges = {}
         if highlighted_paths:
-            for path in highlighted_paths:
+            for idx, path in enumerate(highlighted_paths):
                 for i in range(len(path) - 1):
-                    highlighted_edges.add((path[i], path[i + 1]))
+                    highlighted_edges[(path[i], path[i + 1])] = idx
 
         # Pass 1: draw base edges
         for u, neighbors in self.graph.items():
@@ -359,15 +359,20 @@ class ICS_GUI:
                     self.map_canvas.create_line(x1, y1, x2, y2, fill="#d0d0d0", width=2)
 
         # Pass 2: draw highlighted edges on top
-        for edge in highlighted_edges:
+        for edge, idx in highlighted_edges.items():
             u, v = edge
             polyline = self.edge_polylines.get(edge)
             if polyline:
-                self.draw_polyline(polyline, is_highlighted=True)
+                self.draw_polyline(
+                    polyline,
+                    is_highlighted=True,
+                    route_index=idx,
+                )
             else:
                 x1, y1 = self.canvas_points.get(u, (0, 0))
                 x2, y2 = self.canvas_points.get(v, (0, 0))
-                self.map_canvas.create_line(x1, y1, x2, y2, fill="#ff8c42", width=4)
+                color = self.route_color(idx)
+                self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
 
         for node, (x, y) in self.canvas_points.items():
             fill = "#0077b6"
@@ -585,16 +590,20 @@ class ICS_GUI:
 
         return points
 
-    def draw_polyline(self, polyline, is_highlighted=False):
+    def draw_polyline(self, polyline, is_highlighted=False, route_index=0):
         canvas_points = self.polyline_to_canvas(polyline)
         if len(canvas_points) < 2:
             return
-        color = "#ff8c42" if is_highlighted else "#d0d0d0"
+        color = self.route_color(route_index) if is_highlighted else "#d0d0d0"
         width = 4 if is_highlighted else 2
         for i in range(len(canvas_points) - 1):
             x1, y1 = canvas_points[i]
             x2, y2 = canvas_points[i + 1]
             self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
+
+    def route_color(self, idx):
+        palette = ["#ff8c42", "#3a86ff", "#8ac926", "#ff006e", "#8338ec"]
+        return palette[idx % len(palette)]
 
     def resolve_node(self, name):
         node_id = self.name_to_id.get(name)
