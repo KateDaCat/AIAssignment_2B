@@ -74,6 +74,7 @@ class ICS_GUI:
         self.animation_points = []
         self.animation_step = 0
         self.animation_line_ids = []
+        self.animation_after_id = None
 
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
@@ -218,16 +219,9 @@ class ICS_GUI:
 
         selections.grid_columnconfigure(1, weight=1)
 
-        action_frame = tk.Frame(right, bg="#f5f5f5")
-        action_frame.pack(fill="x", pady=10)
-        tk.Button(action_frame, text="Run Routing",
+        tk.Button(right, text="Run Routing",
                 command=self.run_routing,
-                width=12).pack(side="left", padx=(0, 8))
-        self.animate_button = tk.Button(action_frame, text="Animate Route",
-                                        command=self.animate_route,
-                                        state="disabled",
-                                        width=12)
-        self.animate_button.pack(side="left")
+                width=25).pack(pady=10)
 
         tk.Label(right, textvariable=self.map_label_var, fg="#555", bg="#f5f5f5").pack()
 
@@ -370,6 +364,9 @@ class ICS_GUI:
         if self.animation_in_progress:
             self.animation_in_progress = False
             self.animation_line_ids = []
+            if self.animation_after_id is not None:
+                self.map_canvas.after_cancel(self.animation_after_id)
+                self.animation_after_id = None
         if self.map_background_image:
             self.map_canvas.create_image(
                 0,
@@ -726,11 +723,13 @@ class ICS_GUI:
                 self.draw_map(origin=origin_id, destination=destination_id)
                 self.update_route_selector()
                 return
-            self.current_routes = [{"path": path, "cost": cost}]
+        self.current_routes = [{"path": path, "cost": cost}]
+        self.active_route_index = 0
 
         highlighted = [self.current_routes[self.active_route_index]["path"]]
         self.draw_map(highlighted, origin_id, destination_id)
         self.update_route_selector()
+        self.start_animation()
 
         lines = [
             f"Origin: {self.node_label(origin_id)}",
@@ -754,10 +753,6 @@ class ICS_GUI:
         if len(self.current_routes) <= 1:
             self.route_choice_var.set("Route 1")
             self.route_choice_menu.config(state="disabled")
-            if self.current_routes:
-                self.animate_button.config(state="normal")
-            else:
-                self.animate_button.config(state="disabled")
             return
 
         menu = self.route_choice_menu["menu"]
@@ -789,8 +784,7 @@ class ICS_GUI:
         self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
         if self.current_routes:
             self.route_choice_var.set(f"Route {idx + 1} ({self.current_routes[idx]['cost']:.4f} h)")
-        self.animation_in_progress = False
-        self.animation_line_ids = []
+        self.start_animation()
 
     def run_single_search(self, method, origin_id, destinations):
         method = method.upper()
@@ -807,14 +801,13 @@ class ICS_GUI:
         if method == "CUS2":
             return cus2_hcs(self.graph, origin_id, destinations, self.coords)
         raise ValueError(f"Unknown algorithm '{method}'")
-
-    def animate_route(self):
-        if not self.current_routes or self.animation_in_progress:
+    def start_animation(self):
+        if not self.current_routes:
             return
         current = self.current_routes[self.active_route_index]["path"]
         if len(current) < 2:
             return
-        self.animation_points = []
+        points = []
         for i in range(len(current) - 1):
             edge = (current[i], current[i + 1])
             polyline = self.edge_polylines.get(edge)
@@ -828,27 +821,30 @@ class ICS_GUI:
             canvas_points = self.polyline_to_canvas(polyline)
             if not canvas_points:
                 continue
-            if self.animation_points:
-                if self.animation_points[-1] != canvas_points[0]:
-                    self.animation_points.extend(canvas_points)
+            if points:
+                if points[-1] != canvas_points[0]:
+                    points.extend(canvas_points)
                 else:
-                    self.animation_points.extend(canvas_points[1:])
+                    points.extend(canvas_points[1:])
             else:
-                self.animation_points.extend(canvas_points)
-        if len(self.animation_points) < 2:
+                points.extend(canvas_points)
+        if len(points) < 2:
             return
+        if self.animation_after_id is not None:
+            self.map_canvas.after_cancel(self.animation_after_id)
+            self.animation_after_id = None
+        self.animation_points = points
         self.animation_step = 0
         self.animation_line_ids = []
         self.animation_in_progress = True
-        self.animate_button.config(state="disabled")
-        self.map_canvas.after(60, self.advance_animation)
+        self.animation_after_id = self.map_canvas.after(60, self.advance_animation)
 
     def advance_animation(self):
         if not self.animation_in_progress:
             return
         if self.animation_step >= len(self.animation_points) - 1:
             self.animation_in_progress = False
-            self.animate_button.config(state="normal")
+            self.animation_after_id = None
             return
         x1, y1 = self.animation_points[self.animation_step]
         x2, y2 = self.animation_points[self.animation_step + 1]
@@ -856,7 +852,7 @@ class ICS_GUI:
         line_id = self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
         self.animation_line_ids.append(line_id)
         self.animation_step += 1
-        self.map_canvas.after(60, self.advance_animation)
+        self.animation_after_id = self.map_canvas.after(60, self.advance_animation)
 
 
 def main():
