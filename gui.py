@@ -13,7 +13,7 @@ from topk import yen_k_shortest_paths
 class ICS_GUI:
     CANVAS_WIDTH = 820
     CANVAS_HEIGHT = 720
-    MAP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps", "kuching_city.txt")
+    MAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
 
     def __init__(self, root):
         self.root = root
@@ -36,7 +36,25 @@ class ICS_GUI:
         self.canvas_points = {}
         self.current_paths = []
 
-        self.load_map_data()
+        self.map_entries = self.discover_map_files()
+        if not self.map_entries:
+            messagebox.showerror(
+                "Missing maps",
+                "No Kuching map files were found in the maps/ directory.",
+            )
+            self.map_entries = [("No maps available", None)]
+
+        self.map_var = tk.StringVar(value=self.map_entries[0][0])
+        self.map_label_var = tk.StringVar()
+        self.current_map_path = self.map_entries[0][1]
+
+        if self.current_map_path:
+            self.load_map_data(self.current_map_path)
+        else:
+            self.graph = {}
+            self.landmarks = {}
+            self.map_label_var.set("Map: (missing)")
+
         self.build_layout()
         self.draw_map()
 
@@ -129,19 +147,26 @@ class ICS_GUI:
 
         tk.Label(selections, text="Origin:", anchor="w",
                 bg="#f5f5f5").grid(row=0, column=0, sticky="w")
-        origin_names = [self.landmarks[node] for node in sorted(self.landmarks)]
+        origin_names = self.landmark_names() or ["(none)"]
         self.origin_var = tk.StringVar(value=origin_names[0])
-        tk.OptionMenu(selections, self.origin_var, *origin_names).grid(row=0, column=1, sticky="ew")
+        self.origin_menu = tk.OptionMenu(selections, self.origin_var, *origin_names)
+        self.origin_menu.grid(row=0, column=1, sticky="ew")
 
         tk.Label(selections, text="Destination:", anchor="w",
                 bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        self.destination_var = tk.StringVar(value=origin_names[0])
-        tk.OptionMenu(selections, self.destination_var, *origin_names).grid(row=1, column=1, sticky="ew", pady=(8, 0))
+        self.destination_var = tk.StringVar(value=origin_names[-1])
+        self.destination_menu = tk.OptionMenu(selections, self.destination_var, *origin_names)
+        self.destination_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Number of routes (k):", anchor="w",
                 bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
         self.k_var = tk.StringVar(value="3")
         tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=2, column=1, sticky="w")
+
+        tk.Label(selections, text="Map:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        map_labels = [entry[0] for entry in self.map_entries]
+        self.map_menu = tk.OptionMenu(selections, self.map_var, *map_labels, command=self.on_map_change)
+        self.map_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
 
         selections.grid_columnconfigure(1, weight=1)
 
@@ -149,8 +174,7 @@ class ICS_GUI:
                 command=self.run_routing,
                 width=25).pack(pady=10)
 
-        map_label = os.path.basename(self.MAP_FILE) if os.path.exists(self.MAP_FILE) else "No map found"
-        tk.Label(right, text=f"Map: {map_label}", fg="#555", bg="#f5f5f5").pack()
+        tk.Label(right, textvariable=self.map_label_var, fg="#555", bg="#f5f5f5").pack()
 
         # Output box with scroll
         output_frame = tk.Frame(right, bg="#f5f5f5")
@@ -202,7 +226,9 @@ class ICS_GUI:
     # ---------------------------
     # Routing
     # ---------------------------
-    def load_map_data(self):
+    def load_map_data(self, map_path):
+        if not map_path:
+            return
         try:
             (
                 self.graph,
@@ -211,15 +237,22 @@ class ICS_GUI:
                 self.coords,
                 self.accident,
                 self.landmarks,
-            ) = load_graph(self.MAP_FILE)
+            ) = load_graph(map_path)
         except FileNotFoundError:
-            messagebox.showerror("Error", f"Map file not found: {self.MAP_FILE}")
+            messagebox.showerror("Error", f"Map file not found: {map_path}")
             self.graph = {}
             self.landmarks = {}
             return
 
+        self.current_map_path = map_path
+        base = os.path.basename(map_path)
+        friendly = self.pretty_map_label(base)
+        self.map_label_var.set(f"Map: {friendly}")
+
         self.name_to_id = {name: node for node, name in self.landmarks.items()}
         self.compute_canvas_points()
+        if hasattr(self, "origin_menu"):
+            self.refresh_landmark_menus()
 
     def compute_canvas_points(self):
         if not self.coords:
@@ -298,6 +331,54 @@ class ICS_GUI:
                 font=("Arial", 9),
                 fill="#333",
             )
+
+    def discover_map_files(self):
+        entries = []
+        if not os.path.isdir(self.MAP_DIR):
+            return entries
+        for filename in sorted(os.listdir(self.MAP_DIR)):
+            if not filename.endswith(".txt"):
+                continue
+            if filename.startswith("heritage_assignment"):
+                continue
+            path = os.path.join(self.MAP_DIR, filename)
+            entries.append((self.pretty_map_label(filename), path))
+        return entries
+
+    def pretty_map_label(self, filename):
+        base = os.path.splitext(filename)[0]
+        label = base.replace("_", " ").title()
+        return label.replace("Osm", "OSM")
+
+    def landmark_names(self):
+        return [self.landmarks[node] for node in sorted(self.landmarks)]
+
+    def refresh_landmark_menus(self):
+        names = self.landmark_names()
+        if not names:
+            names = ["(none)"]
+        for var, menu in [(self.origin_var, self.origin_menu), (self.destination_var, self.destination_menu)]:
+            menu["menu"].delete(0, "end")
+            for name in names:
+                menu["menu"].add_command(label=name, command=lambda value=name, v=var: v.set(value))
+        if names[0] == "(none)":
+            self.origin_var.set("(none)")
+            self.destination_var.set("(none)")
+        else:
+            if self.origin_var.get() not in names:
+                self.origin_var.set(names[0])
+            if self.destination_var.get() not in names:
+                fallback = names[1] if len(names) > 1 else names[0]
+                self.destination_var.set(fallback)
+
+    def on_map_change(self, selection):
+        for label, path in self.map_entries:
+            if label == selection and path:
+                self.map_var.set(label)
+                self.load_map_data(path)
+                self.route_output.delete("1.0", tk.END)
+                self.draw_map()
+                return
 
     def resolve_node(self, name):
         node_id = self.name_to_id.get(name)
