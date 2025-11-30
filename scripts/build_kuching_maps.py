@@ -8,19 +8,26 @@ OpenStreetMap export into the map format expected by graph.py/search.py.
 from __future__ import annotations
 
 import argparse
+import json
+import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import math
-import os
-
 import networkx as nx
+import numpy as np
+from PIL import Image
 
 try:
     import osmnx as ox
 except ImportError as exc:  # pragma: no cover
-    raise SystemExit("osmnx is required. Install with `pip install osmnx`." ) from exc
+    raise SystemExit("osmnx is required. Install with `pip install osmnx`.") from exc
+
+try:
+    import contextily as cx
+except ImportError as exc:  # pragma: no cover
+    raise SystemExit("contextily is required. Install with `pip install contextily`.") from exc
 
 
 Number = float
@@ -197,6 +204,15 @@ def convert_heritage(src: Path, dest: Path) -> None:
     )
     print(f"[ok] Wrote heritage map to {dest}")
 
+    image_path = dest.with_suffix(".png")
+    meta_path = dest.with_suffix(".meta.json")
+    generate_basemap_image(
+        nodes=data.nodes,
+        image_path=image_path,
+        meta_path=meta_path,
+        zoom=17,
+    )
+
 
 @dataclass
 class OSMSpec:
@@ -208,6 +224,68 @@ class OSMSpec:
     accident_road: str
     accident_severity: str
     accident_multiplier: float
+    zoom: int = 16
+
+
+def compute_bbox(nodes: Dict[int, Tuple[float, float]]) -> Tuple[float, float, float, float]:
+    xs = [coord[0] for coord in nodes.values()]
+    ys = [coord[1] for coord in nodes.values()]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+def generate_basemap_image(
+    *,
+    nodes: Dict[int, Tuple[float, float]],
+    image_path: Path,
+    meta_path: Path,
+    zoom: int,
+):
+    if not nodes:
+        return
+
+    west, east, south, north = compute_bbox(nodes)
+    if math.isclose(west, east) or math.isclose(south, north):
+        return
+
+    try:
+        img, extent = cx.bounds2img(
+            west,
+            south,
+            east,
+            north,
+            zoom=zoom,
+            source=cx.providers.OpenStreetMap.Mapnik,
+        )
+    except Exception as exc:
+        print(f"[warn] Failed to fetch basemap tiles: {exc}")
+        return
+    arr = img
+    if arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[1] > 4 and arr.shape[2] > 4:
+        arr = np.moveaxis(arr, 0, -1)
+    if arr.ndim == 2:
+        arr = np.repeat(arr[:, :, None], 3, axis=2)
+    if arr.shape[2] == 1:
+        arr = np.repeat(arr, 3, axis=2)
+    Image.fromarray(arr).save(image_path)
+
+    meta = {
+        "image": os.path.basename(image_path),
+        "projection": "web_mercator",
+        "extent": {
+            "xmin": float(extent[0]),
+            "xmax": float(extent[1]),
+            "ymin": float(extent[2]),
+            "ymax": float(extent[3]),
+        },
+        "bounds": {
+            "west": float(west),
+            "east": float(east),
+            "south": float(south),
+            "north": float(north),
+        },
+        "zoom": zoom,
+    }
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
 def load_osm_graph(osm_path: Path):
@@ -369,6 +447,15 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
     )
     print(f"[ok] Wrote OSM-derived map to {dest}")
 
+    image_path = dest.with_suffix(".png")
+    meta_path = dest.with_suffix(".meta.json")
+    generate_basemap_image(
+        nodes=nodes,
+        image_path=image_path,
+        meta_path=meta_path,
+        zoom=spec.zoom,
+    )
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Kuching maps from assets")
@@ -406,6 +493,7 @@ def main():
                 accident_road="Jalan Tun Abang Haji Openg",
                 accident_severity="Moderate",
                 accident_multiplier=1.3,
+                zoom=16,
             ),
             OSMSpec(
                 name="kuching_museum_loop_osm",
@@ -422,6 +510,7 @@ def main():
                 accident_road="Jalan Taman Budaya",
                 accident_severity="Severe",
                 accident_multiplier=1.5,
+                zoom=17,
             ),
         ]
 

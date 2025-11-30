@@ -1,0 +1,17 @@
+{
+  "image": "kuching_central_osm.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 0.0,
+    "xmax": 611.49622628141,
+    "ymin": -7.081154551613622e-10,
+    "ymax": 611.4962262802818
+  },
+  "bounds": {
+    "west": 110.3390032,
+    "east": 110.3494343,
+    "south": 1.5540712,
+    "north": 1.561105
+  },
+  "zoom": 16
+}

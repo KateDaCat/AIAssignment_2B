@@ -1,0 +1,17 @@
+{
+  "image": "kuching_museum_loop_osm.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 0.0,
+    "xmax": 305.748113140705,
+    "ymin": -7.081154551613622e-10,
+    "ymax": 305.7481131404374
+  },
+  "bounds": {
+    "west": 110.3390245,
+    "east": 110.3454094,
+    "south": 1.5512194,
+    "north": 1.5554924
+  },
+  "zoom": 17
+}
