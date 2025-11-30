@@ -55,6 +55,8 @@ class ICS_GUI:
             ]
 
         self.map_background_image = None
+        self.background_offset = (0, 0)
+        self.background_display_size = (self.CANVAS_WIDTH, self.CANVAS_HEIGHT)
         self.current_extent = None
         self.current_projection = None
 
@@ -284,27 +286,41 @@ class ICS_GUI:
             max_x = self.current_extent["xmax"]
             min_y = self.current_extent["ymin"]
             max_y = self.current_extent["ymax"]
-        else:
-            xs = [pt[0] for pt in self.coords.values()]
-            ys = [pt[1] for pt in self.coords.values()]
-            min_x, max_x = min(xs), max(xs)
-            min_y, max_y = min(ys), max(ys)
+            display_width, display_height = self.background_display_size
+            offset_x, offset_y = self.background_offset
+            span_x = max(max_x - min_x, 1e-5)
+            span_y = max(max_y - min_y, 1e-5)
+            scale_x = display_width / span_x
+            scale_y = display_height / span_y
+
+            self.canvas_points = {}
+            for node, (lon, lat) in self.coords.items():
+                x_m, y_m = self.lonlat_to_webmerc(lon, lat)
+                px = offset_x + (x_m - min_x) * scale_x
+                py = offset_y + display_height - (y_m - min_y) * scale_y
+                self.canvas_points[node] = (px, py)
+            return
+
+        xs = [pt[0] for pt in self.coords.values()]
+        ys = [pt[1] for pt in self.coords.values()]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
 
         span_x = max(max_x - min_x, 1e-5)
         span_y = max(max_y - min_y, 1e-5)
         margin = 40
+        scale = min(
+            (self.CANVAS_WIDTH - 2 * margin) / span_x,
+            (self.CANVAS_HEIGHT - 2 * margin) / span_y,
+        )
+        offset_x = (self.CANVAS_WIDTH - span_x * scale) / 2
+        offset_y = (self.CANVAS_HEIGHT - span_y * scale) / 2
 
         self.canvas_points = {}
         for node, (lon, lat) in self.coords.items():
-            if using_projection:
-                x, y = self.lonlat_to_webmerc(lon, lat)
-            else:
-                x, y = lon, lat
-            norm_x = (x - min_x) / span_x
-            norm_y = (y - min_y) / span_y
-            canvas_x = margin + norm_x * (self.CANVAS_WIDTH - 2 * margin)
-            canvas_y = self.CANVAS_HEIGHT - (margin + norm_y * (self.CANVAS_HEIGHT - 2 * margin))
-            self.canvas_points[node] = (canvas_x, canvas_y)
+            px = offset_x + (lon - min_x) * scale
+            py = self.CANVAS_HEIGHT - (offset_y + (lat - min_y) * scale)
+            self.canvas_points[node] = (px, py)
 
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
         self.map_canvas.delete("all")
@@ -447,6 +463,8 @@ class ICS_GUI:
 
     def load_background_assets(self, entry):
         self.map_background_image = None
+        self.background_offset = (0, 0)
+        self.background_display_size = (self.CANVAS_WIDTH, self.CANVAS_HEIGHT)
         self.current_extent = None
         self.current_projection = None
 
@@ -455,13 +473,28 @@ class ICS_GUI:
 
         if image_path and os.path.exists(image_path):
             try:
-                img = Image.open(image_path).resize(
-                    (self.CANVAS_WIDTH, self.CANVAS_HEIGHT),
-                    Image.LANCZOS,
+                raw = Image.open(image_path)
+                scale = min(
+                    self.CANVAS_WIDTH / raw.width,
+                    self.CANVAS_HEIGHT / raw.height,
                 )
-                self.map_background_image = ImageTk.PhotoImage(img)
+                new_size = (int(raw.width * scale), int(raw.height * scale))
+                resized = raw.resize(new_size, Image.LANCZOS)
+                offset_x = (self.CANVAS_WIDTH - new_size[0]) // 2
+                offset_y = (self.CANVAS_HEIGHT - new_size[1]) // 2
+                canvas_img = Image.new("RGB", (self.CANVAS_WIDTH, self.CANVAS_HEIGHT), (240, 240, 240))
+                canvas_img.paste(resized, (offset_x, offset_y))
+                self.map_background_image = ImageTk.PhotoImage(canvas_img)
+                self.background_offset = (offset_x, offset_y)
+                self.background_display_size = new_size
             except Exception:
                 self.map_background_image = None
+                self.background_offset = (0, 0)
+                self.background_display_size = (self.CANVAS_WIDTH, self.CANVAS_HEIGHT)
+        else:
+            self.map_background_image = None
+            self.background_offset = (0, 0)
+            self.background_display_size = (self.CANVAS_WIDTH, self.CANVAS_HEIGHT)
 
         if meta:
             self.current_extent = meta.get("extent")
