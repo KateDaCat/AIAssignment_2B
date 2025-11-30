@@ -189,6 +189,17 @@ class ICS_GUI:
                 bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
         self.k_var = tk.StringVar(value="3")
         tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=2, column=1, sticky="w")
+        tk.Label(selections, text="Display route:", anchor="w",
+                bg="#f5f5f5").grid(row=2, column=2, sticky="w", padx=(10, 0))
+        self.route_choice_var = tk.StringVar(value="Route 1")
+        self.route_choice_menu = tk.OptionMenu(
+            selections,
+            self.route_choice_var,
+            "Route 1",
+            command=self.on_route_option_selected,
+        )
+        self.route_choice_menu.grid(row=2, column=3, sticky="ew", pady=(8, 0))
+        self.route_choice_menu.config(state="disabled")
 
         tk.Label(selections, text="Map:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
         map_labels = [entry["label"] for entry in self.map_entries]
@@ -202,19 +213,13 @@ class ICS_GUI:
         self.algorithm_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
 
         selections.grid_columnconfigure(1, weight=1)
+        selections.grid_columnconfigure(3, weight=1)
 
         tk.Button(right, text="Run Routing",
                 command=self.run_routing,
                 width=25).pack(pady=10)
 
         tk.Label(right, textvariable=self.map_label_var, fg="#555", bg="#f5f5f5").pack()
-
-        self.route_selector_frame = tk.Frame(right, bg="#f5f5f5")
-        tk.Label(self.route_selector_frame, text="Select route to display:", bg="#f5f5f5").pack(anchor="w")
-        self.route_listbox = tk.Listbox(self.route_selector_frame, height=4, exportselection=False)
-        self.route_listbox.pack(fill="x", pady=(2, 5))
-        self.route_listbox.bind("<<ListboxSelect>>", self.on_route_selected)
-        self.route_selector_frame.pack_forget()
 
         # Output box with scroll
         output_frame = tk.Frame(right, bg="#f5f5f5")
@@ -734,33 +739,38 @@ class ICS_GUI:
 
     def update_route_selector(self):
         if len(self.current_routes) <= 1:
-            self.route_selector_frame.pack_forget()
+            self.route_choice_var.set("Route 1")
+            self.route_choice_menu.config(state="disabled")
             return
-        if not self.route_selector_frame.winfo_ismapped():
-            self.route_selector_frame.pack(fill="x", pady=(5, 10))
-        self.route_listbox.delete(0, tk.END)
-        for idx, info in enumerate(self.current_routes):
-            self.route_listbox.insert(
-                tk.END,
-                f"Route {idx + 1}: {info['cost']:.4f} h",
-            )
-        self.route_listbox.selection_clear(0, tk.END)
-        self.route_listbox.selection_set(self.active_route_index)
 
-    def on_route_selected(self, _event):
-        if not self.current_routes:
-            return
-        selection = self.route_listbox.curselection()
-        if not selection:
-            return
-        idx = selection[0]
-        if idx >= len(self.current_routes):
+        menu = self.route_choice_menu["menu"]
+        menu.delete(0, "end")
+        for idx, info in enumerate(self.current_routes):
+            label = f"Route {idx + 1} ({info['cost']:.4f} h)"
+            menu.add_command(
+                label=label,
+                command=lambda value=idx: self.on_route_option_selected(value),
+            )
+        self.route_choice_menu.config(state="normal")
+        self.route_choice_var.set(f"Route {self.active_route_index + 1} ({self.current_routes[self.active_route_index]['cost']:.4f} h)")
+
+    def on_route_option_selected(self, value):
+        if isinstance(value, str):
+            try:
+                idx = int(value.split()[1]) - 1
+            except Exception:
+                idx = 0
+        else:
+            idx = int(value)
+        if idx < 0 or idx >= len(self.current_routes):
             return
         self.active_route_index = idx
         if self.last_origin_id is None or self.last_destination_id is None:
             return
         highlighted = [self.current_routes[self.active_route_index]["path"]]
         self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
+        if self.current_routes:
+            self.route_choice_var.set(f"Route {idx + 1} ({self.current_routes[idx]['cost']:.4f} h)")
 
     def run_single_search(self, method, origin_id, destinations):
         method = method.upper()
