@@ -190,7 +190,7 @@ class ICS_GUI:
         self.k_var = tk.StringVar(value="3")
         tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=2, column=1, sticky="w")
         tk.Label(selections, text="Display route:", anchor="w",
-                bg="#f5f5f5").grid(row=2, column=2, sticky="w", padx=(10, 0))
+                bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(4, 0))
         self.route_choice_var = tk.StringVar(value="Route 1")
         self.route_choice_menu = tk.OptionMenu(
             selections,
@@ -198,22 +198,21 @@ class ICS_GUI:
             "Route 1",
             command=self.on_route_option_selected,
         )
-        self.route_choice_menu.grid(row=2, column=3, sticky="ew", pady=(8, 0))
+        self.route_choice_menu.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(4, 0))
         self.route_choice_menu.config(state="disabled")
 
-        tk.Label(selections, text="Map:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        tk.Label(selections, text="Map:", anchor="w", bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
         map_labels = [entry["label"] for entry in self.map_entries]
         self.map_menu = tk.OptionMenu(selections, self.map_var, *map_labels, command=self.on_map_change)
-        self.map_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
+        self.map_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
 
-        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(8, 0))
         self.algorithm_var = tk.StringVar(value="CUS1")
         algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
         self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
-        self.algorithm_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
+        self.algorithm_menu.grid(row=5, column=1, sticky="ew", pady=(8, 0))
 
         selections.grid_columnconfigure(1, weight=1)
-        selections.grid_columnconfigure(3, weight=1)
 
         tk.Button(right, text="Run Routing",
                 command=self.run_routing,
