@@ -723,8 +723,8 @@ class ICS_GUI:
                 self.draw_map(origin=origin_id, destination=destination_id)
                 self.update_route_selector()
                 return
-        self.current_routes = [{"path": path, "cost": cost}]
-        self.active_route_index = 0
+            self.current_routes = [{"path": path, "cost": cost}]
+            self.active_route_index = 0
 
         self.draw_map(None, origin_id, destination_id)
         self.update_route_selector()
@@ -757,16 +757,15 @@ class ICS_GUI:
         menu = self.route_choice_menu["menu"]
         menu.delete(0, "end")
         for idx, info in enumerate(self.current_routes):
-            label = f"Route {idx + 1} ({info['cost']:.4f} h)"
             menu.add_command(
-                label=label,
+                label=f"Route {idx + 1} ({info['cost']:.4f} h)",
                 command=lambda value=idx: self.on_route_option_selected(value),
             )
         self.route_choice_menu.config(state="normal")
-        self.animate_button.config(state="normal")
         self.route_choice_var.set(f"Route {self.active_route_index + 1} ({self.current_routes[self.active_route_index]['cost']:.4f} h)")
 
     def on_route_option_selected(self, value):
+        idx = 0
         if isinstance(value, str):
             try:
                 idx = int(value.split()[1]) - 1
