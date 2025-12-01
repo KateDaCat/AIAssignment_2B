@@ -212,12 +212,26 @@ class ICS_GUI:
         self.map_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(8, 0))
-        self.algorithm_var = tk.StringVar(value="CUS1")
-        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
-        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
+        self._algorithm_choices = {
+            "Uniform Cost Search (CUS1)": "CUS1",
+            "Breadth-First Search": "BFS",
+            "Depth-First Search": "DFS",
+            "Greedy Best-First Search": "GBFS",
+            "A* Search": "ASTAR",
+            "Hill-Climbing Search (CUS2)": "CUS2",
+        }
+        algorithm_names = list(self._algorithm_choices.keys())
+        self.algorithm_var = tk.StringVar(value=algorithm_names[0])
+        self.algorithm_menu = tk.OptionMenu(
+            selections,
+            self.algorithm_var,
+            *algorithm_names,
+        )
         self.algorithm_menu.grid(row=5, column=1, sticky="ew", pady=(8, 0))
 
         selections.grid_columnconfigure(1, weight=1)
+        selections.grid_columnconfigure(2, weight=1)
+        selections.grid_columnconfigure(3, weight=1)
 
         tk.Button(right, text="Run Routing",
                 command=self.run_routing,
@@ -678,7 +692,8 @@ class ICS_GUI:
         except ValueError:
             k = 1
 
-        method = self.algorithm_var.get().upper()
+        selected_algorithm = self.algorithm_var.get()
+        method = self._algorithm_choices.get(selected_algorithm, "CUS1")
         if method != "CUS1" and k > 1:
             messagebox.showinfo(
                 "Top-k not available",
