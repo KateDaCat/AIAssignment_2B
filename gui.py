@@ -174,22 +174,33 @@ class ICS_GUI:
         )
 
         # Actual content frame placed INSIDE the canvas
-        right = tk.Frame(right_canvas, bg="#f5f5f5", padx=20, pady=20)
-        right_canvas.create_window((0, 0), window=right, anchor="nw")
+        right_container = tk.Frame(right_canvas, bg="#f5f5f5")
+        right_canvas.create_window((0, 0), window=right_container, anchor="nw")
+
+        right = tk.Frame(right_container, bg="#f5f5f5", padx=30, pady=30)
+        right.pack(expand=True)
 
         # ==============================
         # RIGHT SIDE CONTENT (unchanged)
         # ==============================
-        tk.Label(right, text="Accident Image Classification",
-                font=("Arial", 16, "bold")).pack(pady=10)
+        header = tk.Label(
+            right,
+            text="Accident Image Classification",
+            font=("Arial", 16, "bold"),
+            bg="#f5f5f5",
+        )
+        header.pack(pady=10)
 
         self.preview = tk.Label(right, text="No Image Uploaded",
                                 bg="#ddd", width=40, height=12)
-        self.preview.pack(pady=10)
+        self.preview.pack(pady=10, padx=10)
 
-        tk.Button(right, text="Upload Image",
-                command=self.upload_image,
-                width=25).pack(pady=5)
+        tk.Button(
+            right,
+            text="Upload Image",
+            command=self.upload_image,
+            width=25,
+        ).pack(pady=5)
 
         self.cnn_label = tk.Label(right, text="CNN Prediction: -",
                                 font=("Arial", 12), anchor="w")
@@ -210,7 +221,7 @@ class ICS_GUI:
 
         tk.Label(right, text="---------------------------------").pack(pady=10)
 
-        tk.Label(right, text="Route Finder", font=("Arial", 16, "bold")).pack()
+        tk.Label(right, text="Route Finder", font=("Arial", 16, "bold"), bg="#f5f5f5").pack()
 
         selections = tk.Frame(right, bg="#f5f5f5")
         selections.pack(fill="x", pady=5)
