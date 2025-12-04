@@ -181,7 +181,7 @@ class ICS_GUI:
 
         # Actual content frame placed INSIDE the canvas
         right_container = tk.Frame(right_canvas, bg="#f5f5f5")
-        right_canvas.create_window((0, 0), window=right_container, anchor="nw")
+        right_canvas.create_window((0, 0), window=right_container, anchor="n")
 
         right = tk.Frame(right_container, bg="#f5f5f5", padx=30, pady=30)
         right.pack(expand=True)
@@ -230,7 +230,7 @@ class ICS_GUI:
         tk.Label(right, text="Route Finder", font=("Arial", 16, "bold"), bg="#f5f5f5").pack()
 
         selections = tk.Frame(right, bg="#f5f5f5")
-        selections.pack(fill="x", pady=5)
+        selections.pack(fill="x", pady=5, padx=20)
 
         tk.Label(selections, text="Origin:", anchor="w",
                 bg="#f5f5f5").grid(row=0, column=0, sticky="w")
