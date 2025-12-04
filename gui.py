@@ -92,8 +92,7 @@ class ICS_GUI:
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
         self.map_label_var = tk.StringVar()
         self.accident_edge_var = tk.StringVar(value="(select edge)")
-        self.severity_var = tk.StringVar(value="Moderate")
-        self.accident_status_var = tk.StringVar(value="No custom accidents.")
+        self.accident_status_var = tk.StringVar(value="")
         self.accident_listbox = None
         self.accident_edge_menu = None
 
@@ -255,25 +254,15 @@ class ICS_GUI:
         self.accident_edge_menu = tk.OptionMenu(accident_frame, self.accident_edge_var, "(no edges)")
         self.accident_edge_menu.grid(row=0, column=1, sticky="ew")
 
-        tk.Label(
-            accident_frame,
-            text="Severity:",
-            bg="#f5f5f5",
-            anchor="w",
-        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
-
-        severity_menu = tk.OptionMenu(accident_frame, self.severity_var, *self.SEVERITY_LEVELS.keys())
-        severity_menu.grid(row=1, column=1, sticky="ew", pady=(6, 0))
-
         tk.Button(
             accident_frame,
             text="Add / Update",
             command=self.add_custom_accident,
             width=20,
-        ).grid(row=2, column=0, columnspan=2, pady=(8, 4))
+        ).grid(row=1, column=0, columnspan=2, pady=(8, 4))
 
         list_frame = tk.Frame(accident_frame, bg="#f5f5f5")
-        list_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
+        list_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
         accident_frame.grid_columnconfigure(1, weight=1)
         accident_frame.grid_rowconfigure(3, weight=1)
 
@@ -284,7 +273,7 @@ class ICS_GUI:
         list_scroll.pack(side="right", fill="y")
 
         btn_row = tk.Frame(accident_frame, bg="#f5f5f5")
-        btn_row.grid(row=4, column=0, columnspan=2, pady=(4, 0))
+        btn_row.grid(row=3, column=0, columnspan=2, pady=(4, 0))
 
         tk.Button(
             btn_row,
@@ -300,14 +289,7 @@ class ICS_GUI:
             width=10,
         ).pack(side="left")
 
-        tk.Label(
-            accident_frame,
-            textvariable=self.accident_status_var,
-            bg="#f5f5f5",
-            fg="#555",
-            wraplength=320,
-            justify="left",
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self.accident_status_var.set("")
 
         self.apply_accident_edge_menu_options()
 
@@ -645,12 +627,8 @@ class ICS_GUI:
         if edge is None:
             messagebox.showwarning("Invalid edge", "Select an existing edge before adding an accident.")
             return
-        severity = self.severity_var.get()
-        multiplier = self.SEVERITY_LEVELS.get(severity)
-        if multiplier is None:
-            messagebox.showwarning("Invalid severity", "Choose a severity level.")
-            return
-        self.user_accidents[edge] = {"severity": severity, "multiplier": multiplier}
+        multiplier = self.SEVERITY_LEVELS.get("Moderate", 1.35)
+        self.user_accidents[edge] = {"severity": "Auto", "multiplier": multiplier}
         self.refresh_accident_listbox()
         self.rebuild_graph_with_accidents()
 
@@ -696,17 +674,7 @@ class ICS_GUI:
             if applied:
                 new_graph[u] = updated
         self.graph = new_graph
-        if self.user_accidents:
-            self.accident_status_var.set(
-                f"{len(self.user_accidents)} custom accident(s) applied. Re-run routing to include updated costs."
-            )
-        else:
-            self.accident_status_var.set("No custom accidents.")
         self.routes_stale = True
-        if self.last_origin_id is not None and self.last_destination_id is not None:
-            self.draw_map(origin=self.last_origin_id, destination=self.last_destination_id)
-        else:
-            self.draw_map()
 
     def on_map_change(self, selection):
         for entry in self.map_entries:
@@ -954,10 +922,6 @@ class ICS_GUI:
 
         self.route_output.insert(tk.END, "\n".join(lines))
         self.routes_stale = False
-        if self.user_accidents:
-            self.accident_status_var.set("Routing results include custom accident overrides.")
-        else:
-            self.accident_status_var.set("No custom accidents.")
 
     def update_route_selector(self):
         if len(self.current_routes) <= 1:
