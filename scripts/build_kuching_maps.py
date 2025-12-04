@@ -845,12 +845,6 @@ def main():
                 accident_multiplier=1.8,
                 zoom=15,
             ),
-                ],
-                accident_connection=("Airport Roundabout", "Airport Junction"),
-                accident_severity="Severe",
-                accident_multiplier=2.0,
-                zoom=15,
-            ),
             OSMSpec(
                 name="kuching_batu_kawa",
                 bbox=(1.5040, 1.5125, 110.3040, 110.3210),
