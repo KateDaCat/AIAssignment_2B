@@ -505,12 +505,7 @@ class ICS_GUI:
         if not highlighted_paths:
             return
 
-        for idx, path in enumerate(highlighted_paths):
-            points = self.build_route_polyline(path)
-            if len(points) < 2:
-                continue
-            route = self.map_widget.set_path(points, color=self.route_color(idx), width=4)
-            self.route_paths.append(route)
+        self.route_paths = []
 
     def build_route_polyline(self, node_path):
         if not node_path:
