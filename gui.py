@@ -1032,7 +1032,10 @@ class ICS_GUI:
 def main():
     root = tk.Tk()
     ICS_GUI(root)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        root.destroy()
 
 
 if __name__ == "__main__":
