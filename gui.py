@@ -235,28 +235,51 @@ class ICS_GUI:
 
         tk.Label(right, text="Route Finder", font=("Arial", 16, "bold"), bg="#f5f5f5").pack()
 
-        selections = tk.Frame(right, bg="#f5f5f5")
-        selections.pack(fill="x", pady=5, padx=20)
+        routing_wrapper = tk.Frame(right, bg="#f5f5f5")
+        routing_wrapper.pack(fill="x", pady=10, padx=20)
+
+        def make_row(parent, label_text, widget_builder, row_idx):
+            tk.Label(parent, text=label_text, anchor="w", bg="#f5f5f5").grid(row=row_idx, column=0, sticky="w", pady=(4, 0))
+            widget = widget_builder(parent)
+            widget.grid(row=row_idx, column=1, sticky="ew", pady=(4, 0))
+            return widget
+
+        selections = tk.Frame(routing_wrapper, bg="#f5f5f5")
+        selections.pack(fill="x")
+
+        map_labels = [entry["label"] for entry in self.map_entries]
+        self.map_menu = make_row(
+            selections,
+            "Map:",
+            lambda parent: tk.OptionMenu(parent, self.map_var, *map_labels, command=self.on_map_change),
+            0,
+        )
 
         tk.Label(selections, text="Origin:", anchor="w",
-                bg="#f5f5f5").grid(row=0, column=0, sticky="w")
+                bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
         origin_names = self.landmark_names() or ["(none)"]
         self.origin_var = tk.StringVar(value=origin_names[0])
         self.origin_menu = tk.OptionMenu(selections, self.origin_var, *origin_names)
-        self.origin_menu.grid(row=0, column=1, sticky="ew")
+        self.origin_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Destination:", anchor="w",
-                bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
+                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
         self.destination_var = tk.StringVar(value=origin_names[-1])
         self.destination_menu = tk.OptionMenu(selections, self.destination_var, *origin_names)
-        self.destination_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
+        self.destination_menu.grid(row=2, column=1, sticky="ew", pady=(8, 0))
+
+        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        self.algorithm_var = tk.StringVar(value="CUS1")
+        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
+        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
+        self.algorithm_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Number of routes (k):", anchor="w",
-                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
+                bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.k_var = tk.StringVar(value="3")
-        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=2, column=1, sticky="w")
+        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=4, column=1, sticky="w")
         tk.Label(selections, text="Display route:", anchor="w",
-                bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(4, 0))
+                bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(4, 0))
         self.route_choice_var = tk.StringVar(value="Route 1")
         self.route_choice_menu = tk.OptionMenu(
             selections,
@@ -264,19 +287,8 @@ class ICS_GUI:
             "Route 1",
             command=self.on_route_option_selected,
         )
-        self.route_choice_menu.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(4, 0))
+        self.route_choice_menu.grid(row=5, column=1, columnspan=3, sticky="ew", pady=(4, 0))
         self.route_choice_menu.config(state="disabled")
-
-        tk.Label(selections, text="Map:", anchor="w", bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        map_labels = [entry["label"] for entry in self.map_entries]
-        self.map_menu = tk.OptionMenu(selections, self.map_var, *map_labels, command=self.on_map_change)
-        self.map_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
-
-        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(8, 0))
-        self.algorithm_var = tk.StringVar(value="CUS1")
-        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
-        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
-        self.algorithm_menu.grid(row=5, column=1, sticky="ew", pady=(8, 0))
 
         selections.grid_columnconfigure(1, weight=1)
 
