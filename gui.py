@@ -219,14 +219,6 @@ class ICS_GUI:
         model_menu.config(width=18)
         model_menu.pack(side="left", padx=(6, 0))
 
-        self.cnn_label = tk.Label(right, text="CNN Prediction: -",
-                                font=("Arial", 12), anchor="w")
-        self.cnn_label.pack(fill="x", pady=5)
-
-        self.model2_label = tk.Label(right, text="Model 2 Prediction: -",
-                                    font=("Arial", 12), anchor="w")
-        self.model2_label.pack(fill="x", pady=5)
-
         self.final_label = tk.Label(right, text="Final Severity: -",
                                     font=("Arial", 13, "bold"),
                                     fg="darkred")
