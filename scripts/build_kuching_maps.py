@@ -948,7 +948,7 @@ def main():
                     ("Taman Sri Matang", "Matang Avenue"),
                     ("Matang Avenue", "Taman Sri Matang"),
                 ],
-                accident_connection=("E-Mart Matang", "Swan Commercial Centre"),
+                accident_connection=("E-Mart Matang", "Matang Hospital"),
                 accident_severity="Moderate",
                 accident_multiplier=1.3,
                 zoom=16,
