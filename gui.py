@@ -173,6 +173,12 @@ class ICS_GUI:
             lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all"))
         )
 
+        def _on_mousewheel(event):
+            if event.delta:
+                right_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        right_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
         # Actual content frame placed INSIDE the canvas
         right_container = tk.Frame(right_canvas, bg="#f5f5f5")
         right_canvas.create_window((0, 0), window=right_container, anchor="nw")
