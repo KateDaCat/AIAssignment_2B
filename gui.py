@@ -79,7 +79,7 @@ class ICS_GUI:
         self.animation_points = []
         self.animation_step = 0
 
-        self.model_options = ["CNN Baseline", "ResNet Transfer", "Vision Transformer"]
+        self.model_options = ["CNN", "Transfer Learning (MobileNetV2)", "Random Forest"]
         self.selected_model_var = tk.StringVar(value=self.model_options[0])
 
         self.map_entries = self.discover_map_files()
@@ -397,9 +397,9 @@ class ICS_GUI:
 
         selected_model = self.selected_model_var.get()
         placeholder_outputs = {
-            "CNN Baseline": ("Minor", "Stable confidence"),
-            "ResNet Transfer": ("Moderate", "Transfer learning output"),
-            "Vision Transformer": ("Severe", "High attention weight"),
+            "CNN": ("Minor", "CNN logits indicate low severity"),
+            "Transfer Learning (MobileNetV2)": ("Moderate", "MobileNetV2 features suggest caution"),
+            "Random Forest": ("Severe", "Ensemble votes for severe incident"),
         }
         model_result, note = placeholder_outputs.get(
             selected_model, ("Moderate", "Default response")
