@@ -673,13 +673,23 @@ class ICS_GUI:
             self.update_accident_target_menu(None)
             return
 
+        placeholder = "-- choose start --"
+        self.accident_origin_var.set(placeholder)
+        menu.add_command(label=placeholder, command=lambda: self.reset_accident_selection())
         for node in nodes:
             label = self.node_label(node)
             menu.add_command(
                 label=label,
                 command=lambda value=node: self.on_accident_origin_selected(value),
             )
-        self.on_accident_origin_selected(nodes[0])
+        self.update_accident_target_menu(None)
+
+    def reset_accident_selection(self):
+        self.current_accident_origin = None
+        self.current_accident_target = None
+        self.accident_origin_var.set("-- choose start --")
+        self.accident_target_var.set("-- choose end --")
+        self.update_accident_target_menu(None)
 
     def on_accident_origin_selected(self, node_id):
         self.current_accident_origin = node_id
@@ -694,8 +704,8 @@ class ICS_GUI:
         menu.delete(0, "end")
 
         if not neighbors:
-            self.accident_target_var.set("(no neighbors)")
-            menu.add_command(label="(no neighbors)", command=lambda: None)
+            self.accident_target_var.set("-- choose end --")
+            menu.add_command(label="(select origin first)", command=lambda: None)
             self.current_accident_target = None
             return
 
