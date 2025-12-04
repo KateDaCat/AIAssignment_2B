@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+import copy
 import json
 import math
 import os
@@ -20,6 +21,11 @@ from algorithms.cus2_hcs import cus2_hcs
 # ICS GUI (Assignment 2B)
 # =============================
 class ICS_GUI:
+    SEVERITY_LEVELS = {
+        "Minor": 1.15,
+        "Moderate": 1.35,
+        "Severe": 1.75,
+    }
     CANVAS_WIDTH = 820
     CANVAS_HEIGHT = 720
     MAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
@@ -36,14 +42,20 @@ class ICS_GUI:
         self.current_severity = None
 
         self.graph = {}
+        self.graph_original = {}
         self.origin_default = None
         self.destination_defaults = []
         self.coords = {}
         self.accident = {}
+        self.user_accidents = {}
         self.landmarks = {}
         self.name_to_id = {}
         self.canvas_points = {}
         self.current_paths = []
+        self.accident_edge_lookup = {}
+        self.accident_list_keys = []
+        self.routes_stale = False
+        self.cached_accident_edge_labels = ["(no edges available)"]
 
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
@@ -79,6 +91,11 @@ class ICS_GUI:
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
         self.map_label_var = tk.StringVar()
+        self.accident_edge_var = tk.StringVar(value="(select edge)")
+        self.severity_var = tk.StringVar(value="Moderate")
+        self.accident_status_var = tk.StringVar(value="No custom accidents.")
+        self.accident_listbox = None
+        self.accident_edge_menu = None
 
         if self.current_map_entry.get("map_path"):
             self.load_map_data(self.current_map_entry)
@@ -219,6 +236,81 @@ class ICS_GUI:
 
         selections.grid_columnconfigure(1, weight=1)
 
+        accident_frame = tk.LabelFrame(
+            right,
+            text="Accident Overrides",
+            bg="#f5f5f5",
+            padx=10,
+            pady=10,
+        )
+        accident_frame.pack(fill="x", pady=10)
+
+        tk.Label(
+            accident_frame,
+            text="Edge:",
+            bg="#f5f5f5",
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+
+        self.accident_edge_menu = tk.OptionMenu(accident_frame, self.accident_edge_var, "(no edges)")
+        self.accident_edge_menu.grid(row=0, column=1, sticky="ew")
+
+        tk.Label(
+            accident_frame,
+            text="Severity:",
+            bg="#f5f5f5",
+            anchor="w",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
+
+        severity_menu = tk.OptionMenu(accident_frame, self.severity_var, *self.SEVERITY_LEVELS.keys())
+        severity_menu.grid(row=1, column=1, sticky="ew", pady=(6, 0))
+
+        tk.Button(
+            accident_frame,
+            text="Add / Update",
+            command=self.add_custom_accident,
+            width=20,
+        ).grid(row=2, column=0, columnspan=2, pady=(8, 4))
+
+        list_frame = tk.Frame(accident_frame, bg="#f5f5f5")
+        list_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
+        accident_frame.grid_columnconfigure(1, weight=1)
+        accident_frame.grid_rowconfigure(3, weight=1)
+
+        list_scroll = tk.Scrollbar(list_frame, orient="vertical")
+        self.accident_listbox = tk.Listbox(list_frame, height=5, yscrollcommand=list_scroll.set)
+        self.accident_listbox.pack(side="left", fill="both", expand=True)
+        list_scroll.config(command=self.accident_listbox.yview)
+        list_scroll.pack(side="right", fill="y")
+
+        btn_row = tk.Frame(accident_frame, bg="#f5f5f5")
+        btn_row.grid(row=4, column=0, columnspan=2, pady=(4, 0))
+
+        tk.Button(
+            btn_row,
+            text="Remove Selected",
+            command=self.remove_selected_accident,
+            width=16,
+        ).pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            btn_row,
+            text="Clear All",
+            command=self.clear_custom_accidents,
+            width=10,
+        ).pack(side="left")
+
+        tk.Label(
+            accident_frame,
+            textvariable=self.accident_status_var,
+            bg="#f5f5f5",
+            fg="#555",
+            wraplength=320,
+            justify="left",
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
+        self.apply_accident_edge_menu_options()
+
         tk.Button(right, text="Run Routing",
                 command=self.run_routing,
                 width=25).pack(pady=10)
@@ -307,6 +399,12 @@ class ICS_GUI:
         self.compute_canvas_points()
         if hasattr(self, "origin_menu"):
             self.refresh_landmark_menus()
+        self.graph_original = copy.deepcopy(self.graph)
+        self.user_accidents = {}
+        self.routes_stale = False
+        self.accident_status_var.set("No custom accidents.")
+        self.recompute_accident_edges()
+        self.refresh_accident_listbox()
         self.current_routes = []
         self.active_route_index = 0
         if hasattr(self, "route_selector_frame"):
@@ -501,6 +599,114 @@ class ICS_GUI:
             if self.destination_var.get() not in names:
                 fallback = names[1] if len(names) > 1 else names[0]
                 self.destination_var.set(fallback)
+
+    def recompute_accident_edges(self):
+        labels = []
+        lookup = {}
+        if self.graph_original:
+            for u in sorted(self.graph_original.keys()):
+                for v, cost in sorted(self.graph_original[u], key=lambda item: item[0]):
+                    label = f"{self.node_label(u)} -> {self.node_label(v)} ({cost:.3f} h)"
+                    labels.append(label)
+                    lookup[label] = (u, v)
+        if not labels:
+            labels = ["(no edges available)"]
+        self.accident_edge_lookup = lookup
+        self.cached_accident_edge_labels = labels
+        self.apply_accident_edge_menu_options()
+
+    def apply_accident_edge_menu_options(self):
+        if self.accident_edge_menu is None:
+            return
+        menu = self.accident_edge_menu["menu"]
+        menu.delete(0, "end")
+        for label in self.cached_accident_edge_labels:
+            menu.add_command(label=label, command=lambda value=label: self.accident_edge_var.set(value))
+        self.accident_edge_var.set(self.cached_accident_edge_labels[0])
+
+    def refresh_accident_listbox(self):
+        if self.accident_listbox is None:
+            return
+        self.accident_listbox.delete(0, tk.END)
+        self.accident_list_keys = []
+        for edge in sorted(self.user_accidents.keys()):
+            info = self.user_accidents[edge]
+            u, v = edge
+            label = f"{self.node_label(u)} -> {self.node_label(v)} ({info['severity']} ×{info['multiplier']:.2f})"
+            self.accident_listbox.insert(tk.END, label)
+            self.accident_list_keys.append(edge)
+
+    def add_custom_accident(self):
+        if not self.graph_original:
+            messagebox.showwarning("No graph", "Load a map before adding accidents.")
+            return
+        label = self.accident_edge_var.get()
+        edge = self.accident_edge_lookup.get(label)
+        if edge is None:
+            messagebox.showwarning("Invalid edge", "Select an existing edge before adding an accident.")
+            return
+        severity = self.severity_var.get()
+        multiplier = self.SEVERITY_LEVELS.get(severity)
+        if multiplier is None:
+            messagebox.showwarning("Invalid severity", "Choose a severity level.")
+            return
+        self.user_accidents[edge] = {"severity": severity, "multiplier": multiplier}
+        self.refresh_accident_listbox()
+        self.rebuild_graph_with_accidents()
+
+    def remove_selected_accident(self):
+        if not self.accident_list_keys:
+            return
+        selection = self.accident_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Select entry", "Choose an accident entry to remove.")
+            return
+        idx = selection[0]
+        edge = self.accident_list_keys[idx]
+        if edge in self.user_accidents:
+            del self.user_accidents[edge]
+        self.refresh_accident_listbox()
+        self.rebuild_graph_with_accidents()
+
+    def clear_custom_accidents(self):
+        if not self.user_accidents:
+            return
+        self.user_accidents.clear()
+        self.refresh_accident_listbox()
+        self.rebuild_graph_with_accidents()
+
+    def rebuild_graph_with_accidents(self):
+        if not self.graph_original:
+            return
+        new_graph = {
+            node: [(nbr, cost) for nbr, cost in neighbors]
+            for node, neighbors in self.graph_original.items()
+        }
+        for (u, v), info in self.user_accidents.items():
+            if u not in new_graph:
+                continue
+            updated = []
+            applied = False
+            for nbr, cost in new_graph[u]:
+                if nbr == v:
+                    updated.append((nbr, cost * info["multiplier"]))
+                    applied = True
+                else:
+                    updated.append((nbr, cost))
+            if applied:
+                new_graph[u] = updated
+        self.graph = new_graph
+        if self.user_accidents:
+            self.accident_status_var.set(
+                f"{len(self.user_accidents)} custom accident(s) applied. Re-run routing to include updated costs."
+            )
+        else:
+            self.accident_status_var.set("No custom accidents.")
+        self.routes_stale = True
+        if self.last_origin_id is not None and self.last_destination_id is not None:
+            self.draw_map(origin=self.last_origin_id, destination=self.last_destination_id)
+        else:
+            self.draw_map()
 
     def on_map_change(self, selection):
         for entry in self.map_entries:
@@ -747,6 +953,11 @@ class ICS_GUI:
         lines.append(f"Nodes expanded: {nodes_expanded}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
+        self.routes_stale = False
+        if self.user_accidents:
+            self.accident_status_var.set("Routing results include custom accident overrides.")
+        else:
+            self.accident_status_var.set("No custom accidents.")
 
     def update_route_selector(self):
         if len(self.current_routes) <= 1:
