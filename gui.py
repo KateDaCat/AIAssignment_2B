@@ -26,8 +26,8 @@ class ICS_GUI:
         "Moderate": 1.35,
         "Severe": 1.75,
     }
-    CANVAS_WIDTH = 820
-    CANVAS_HEIGHT = 720
+    CANVAS_WIDTH = 760
+    CANVAS_HEIGHT = 700
     MAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
 
     def __init__(self, root):
@@ -112,12 +112,12 @@ class ICS_GUI:
     def build_layout(self):
 
     # --- Main Window Size ---
-        self.root.geometry("1250x700")   # slightly smaller, fits screens better
+        self.root.geometry("1280x720")   # slightly smaller, fits screens better
 
         # ============================
         # LEFT PANEL (Map)
         # ============================
-        left = tk.Frame(self.root, width=850, height=700, bg="white")
+        left = tk.Frame(self.root, width=800, height=700, bg="white")
         left.pack(side="left", fill="both", expand=True)
 
         self.map_canvas = tk.Canvas(
@@ -134,11 +134,11 @@ class ICS_GUI:
         # ============================
 
         # Outer frame holding canvas + scrollbar
-        right_outer = tk.Frame(self.root, width=400, bg="#f5f5f5")
+        right_outer = tk.Frame(self.root, width=480, bg="#f5f5f5")
         right_outer.pack(side="right", fill="y")
 
         # Canvas used for scrolling
-        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=400)
+        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=480)
         right_canvas.pack(side="left", fill="both", expand=True)
 
         # Scrollbar
