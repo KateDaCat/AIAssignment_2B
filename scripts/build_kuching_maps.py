@@ -913,7 +913,6 @@ def main():
                 accident_multiplier=1.6,
                 zoom=16,
             ),
-            ),
             OSMSpec(
                 name="kuching_matang_kubah",
                 bbox=(1.5640, 1.5850, 110.2650, 110.2860),
