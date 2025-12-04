@@ -5,8 +5,14 @@ import copy
 import json
 import math
 import os
+import sys
 
 from PIL import Image, ImageTk
+
+try:
+    from tkintermapview import TkinterMapView
+except ImportError:  # pragma: no cover - dependency issue surfaced at runtime
+    TkinterMapView = None
 
 from graph import load_graph
 from topk import yen_k_shortest_paths
@@ -35,6 +41,13 @@ class ICS_GUI:
         self.root.title("ICS – Incident Classification System")
         self.root.geometry("1350x750")
 
+        if TkinterMapView is None:
+            messagebox.showerror(
+                "Missing dependency",
+                "tkintermapview is required. Install it with 'pip install tkintermapview'.",
+            )
+            raise SystemExit(1)
+
         # ML prediction placeholders
         self.uploaded_img = None
         self.cnn_model = None
@@ -50,8 +63,11 @@ class ICS_GUI:
         self.user_accidents = {}
         self.landmarks = {}
         self.name_to_id = {}
-        self.canvas_points = {}
         self.current_paths = []
+        self.map_widget = None
+        self.map_markers = []
+        self.route_paths = []
+        self.current_meta_zoom = 15
         self.accident_origin_menu = None
         self.accident_target_menu = None
         self.accident_list_keys = []
@@ -125,14 +141,15 @@ class ICS_GUI:
         left = tk.Frame(self.root, width=800, height=700, bg="white")
         left.pack(side="left", fill="both", expand=True)
 
-        self.map_canvas = tk.Canvas(
+        self.map_widget = TkinterMapView(
             left,
-            bg="white",
-            highlightbackground="#ccc",
             width=self.CANVAS_WIDTH,
             height=self.CANVAS_HEIGHT,
+            corner_radius=0,
         )
-        self.map_canvas.pack(fill="both", expand=True)
+        self.map_widget.pack(fill="both", expand=True)
+        self.map_widget.set_zoom(14)
+        self.map_widget.set_position(1.557, 110.343)
 
         # ============================
         # RIGHT PANEL (SCROLLABLE)
@@ -392,9 +409,10 @@ class ICS_GUI:
 
         self.load_background_assets(entry)
         self.name_to_id = {name: node for node, name in self.landmarks.items()}
-        self.compute_canvas_points()
         if hasattr(self, "origin_menu"):
             self.refresh_landmark_menus()
+        meta = entry.get("meta") or {}
+        self.current_meta_zoom = meta.get("zoom", 15)
         self.graph_original = copy.deepcopy(self.graph)
         self.user_accidents = {}
         self.routes_stale = False
@@ -405,139 +423,88 @@ class ICS_GUI:
         self.active_route_index = 0
         if hasattr(self, "route_selector_frame"):
             self.update_route_selector()
-
-    def compute_canvas_points(self):
-        if not self.coords:
-            self.canvas_points = {}
-            return
-
-        using_projection = bool(self.current_extent and self.current_projection == "web_mercator")
-        if using_projection:
-            min_x = self.current_extent["xmin"]
-            max_x = self.current_extent["xmax"]
-            min_y = self.current_extent["ymin"]
-            max_y = self.current_extent["ymax"]
-            display_width, display_height = self.background_display_size
-            offset_x, offset_y = self.background_offset
-            span_x = max(max_x - min_x, 1e-5)
-            span_y = max(max_y - min_y, 1e-5)
-            scale_x = display_width / span_x
-            scale_y = display_height / span_y
-
-            self.canvas_points = {}
-            for node, (lon, lat) in self.coords.items():
-                x_m, y_m = self.lonlat_to_webmerc(lon, lat)
-                px = offset_x + (x_m - min_x) * scale_x
-                py = offset_y + display_height - (y_m - min_y) * scale_y
-                self.canvas_points[node] = (px, py)
-            return
-
-        xs = [pt[0] for pt in self.coords.values()]
-        ys = [pt[1] for pt in self.coords.values()]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-
-        span_x = max(max_x - min_x, 1e-5)
-        span_y = max(max_y - min_y, 1e-5)
-        margin = 40
-        scale = min(
-            (self.CANVAS_WIDTH - 2 * margin) / span_x,
-            (self.CANVAS_HEIGHT - 2 * margin) / span_y,
-        )
-        offset_x = (self.CANVAS_WIDTH - span_x * scale) / 2
-        offset_y = (self.CANVAS_HEIGHT - span_y * scale) / 2
-
-        self.canvas_points = {}
-        for node, (lon, lat) in self.coords.items():
-            px = offset_x + (lon - min_x) * scale
-            py = self.CANVAS_HEIGHT - (offset_y + (lat - min_y) * scale)
-            self.canvas_points[node] = (px, py)
+        default_destination = self.destination_defaults[0] if self.destination_defaults else None
+        self.draw_map(origin=self.origin_default, destination=default_destination)
 
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
-        self.map_canvas.delete("all")
-        if self.animation_in_progress:
-            self.animation_in_progress = False
-            self.animation_line_ids = []
-            if self.animation_after_id is not None:
-                self.map_canvas.after_cancel(self.animation_after_id)
-                self.animation_after_id = None
-        if self.map_background_image:
-            self.map_canvas.create_image(
-                0,
-                0,
-                image=self.map_background_image,
-                anchor="nw",
-            )
+        if self.map_widget is None:
+            return
+        self.map_widget.delete_all_marker()
+        self.map_widget.delete_all_path()
+        self.map_markers = []
+        self.route_paths = []
 
-        if not self.canvas_points:
-            self.map_canvas.create_text(
-                self.CANVAS_WIDTH / 2,
-                self.CANVAS_HEIGHT / 2,
-                text="No map data loaded",
-                fill="gray",
-            )
+        if not self.coords:
+            self.map_widget.set_position(1.557, 110.343)
+            self.map_widget.set_zoom(13)
             return
 
-        highlighted_edges = {}
-        if highlighted_paths:
-            for idx, path in enumerate(highlighted_paths):
-                for i in range(len(path) - 1):
-                    highlighted_edges[(path[i], path[i + 1])] = idx
+        lats = [lat for (_, lat) in self.coords.values()]
+        lons = [lon for (lon, _) in self.coords.values()]
+        center_lat = sum(lats) / len(lats)
+        center_lon = sum(lons) / len(lons)
+        self.map_widget.set_position(center_lat, center_lon)
+        self.map_widget.set_zoom(self.current_meta_zoom or 15)
 
-        # Pass 1: draw base edges
-        for u, neighbors in self.graph.items():
-            for v, _ in neighbors:
-                polyline = self.edge_polylines.get((u, v))
-                if polyline:
-                    self.draw_polyline(polyline, is_highlighted=False)
-                else:
-                    x1, y1 = self.canvas_points.get(u, (0, 0))
-                    x2, y2 = self.canvas_points.get(v, (0, 0))
-                    self.map_canvas.create_line(x1, y1, x2, y2, fill="#d0d0d0", width=2)
-
-        # Pass 2: draw highlighted edges on top
-        for edge, idx in highlighted_edges.items():
-            u, v = edge
-            polyline = self.edge_polylines.get(edge)
-            if polyline:
-                self.draw_polyline(
-                    polyline,
-                    is_highlighted=True,
-                    route_index=idx,
-                )
-            else:
-                x1, y1 = self.canvas_points.get(u, (0, 0))
-                x2, y2 = self.canvas_points.get(v, (0, 0))
-                color = self.route_color(idx)
-                self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
-
-        for node, (x, y) in self.canvas_points.items():
-            fill = "#0077b6"
-            radius = 6
-            if node == origin:
-                fill = "#2a9d8f"
-                radius = 7
-            elif node == destination:
-                fill = "#e63946"
-                radius = 7
-            self.map_canvas.create_oval(
-                x - radius,
-                y - radius,
-                x + radius,
-                y + radius,
-                fill=fill,
-                outline="white",
-                width=2,
-            )
+        for node in sorted(self.coords.keys()):
+            lon, lat = self.coords[node]
             label = self.landmarks.get(node, str(node))
-            self.map_canvas.create_text(
-                x + 10,
-                y - 10,
-                text=label,
-                anchor="w",
-                font=("Arial", 9),
-                fill="#333",
-            )
+            if node == origin:
+                display_label = f"Origin: {label}"
+            elif node == destination:
+                display_label = f"Destination: {label}"
+            else:
+                display_label = label
+            marker = self.map_widget.set_marker(lat, lon, text=display_label)
+            self.map_markers.append(marker)
+
+        if not highlighted_paths:
+            return
+
+        for idx, path in enumerate(highlighted_paths):
+            points = self.build_route_polyline(path)
+            if len(points) < 2:
+                continue
+            route = self.map_widget.set_path(points, color=self.route_color(idx), width=4)
+            self.route_paths.append(route)
+
+    def build_route_polyline(self, node_path):
+        if not node_path:
+            return []
+        latlon_points = []
+        for idx in range(len(node_path) - 1):
+            u = node_path[idx]
+            v = node_path[idx + 1]
+            polyline = self.edge_polylines.get((u, v))
+            segment = []
+            if polyline:
+                segment = [(lat, lon) for lon, lat in polyline]
+            else:
+                start = self.coords.get(u)
+                end = self.coords.get(v)
+                if start:
+                    segment.append((start[1], start[0]))
+                if end:
+                    segment.append((end[1], end[0]))
+            for point in segment:
+                if latlon_points and latlon_points[-1] == point:
+                    continue
+                latlon_points.append(point)
+        if len(latlon_points) < 2:
+            for node in node_path:
+                coord = self.coords.get(node)
+                if coord:
+                    point = (coord[1], coord[0])
+                    if latlon_points and latlon_points[-1] == point:
+                        continue
+                    latlon_points.append(point)
+        return latlon_points
+
+    def render_active_route(self):
+        highlighted = []
+        if self.current_routes and 0 <= self.active_route_index < len(self.current_routes):
+            highlighted = [self.current_routes[self.active_route_index]["path"]]
+        self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
 
     def discover_map_files(self):
         entries = []
@@ -726,6 +693,7 @@ class ICS_GUI:
                 new_graph[u] = updated
         self.graph = new_graph
         self.routes_stale = True
+        self.render_active_route()
 
     def on_map_change(self, selection):
         for entry in self.map_entries:
@@ -816,59 +784,6 @@ class ICS_GUI:
         y = r * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
         return x, y
 
-    def polyline_to_canvas(self, polyline):
-        using_projection = bool(self.current_extent and self.current_projection == "web_mercator")
-        points = []
-        if using_projection:
-            min_x = self.current_extent["xmin"]
-            max_x = self.current_extent["xmax"]
-            min_y = self.current_extent["ymin"]
-            max_y = self.current_extent["ymax"]
-            display_width, display_height = self.background_display_size
-            offset_x, offset_y = self.background_offset
-            span_x = max(max_x - min_x, 1e-5)
-            span_y = max(max_y - min_y, 1e-5)
-            scale_x = display_width / span_x
-            scale_y = display_height / span_y
-
-            for lon, lat in polyline:
-                x_m, y_m = self.lonlat_to_webmerc(lon, lat)
-                px = offset_x + (x_m - min_x) * scale_x
-                py = offset_y + display_height - (y_m - min_y) * scale_y
-                points.append((px, py))
-        else:
-            xs = [pt[0] for pt in self.coords.values()]
-            ys = [pt[1] for pt in self.coords.values()]
-            min_x, max_x = min(xs), max(xs)
-            min_y, max_y = min(ys), max(ys)
-            span_x = max(max_x - min_x, 1e-5)
-            span_y = max(max_y - min_y, 1e-5)
-            margin = 40
-            scale = min(
-                (self.CANVAS_WIDTH - 2 * margin) / span_x,
-                (self.CANVAS_HEIGHT - 2 * margin) / span_y,
-            )
-            offset_x = (self.CANVAS_WIDTH - span_x * scale) / 2
-            offset_y = (self.CANVAS_HEIGHT - span_y * scale) / 2
-
-            for lon, lat in polyline:
-                px = offset_x + (lon - min_x) * scale
-                py = self.CANVAS_HEIGHT - (offset_y + (lat - min_y) * scale)
-                points.append((px, py))
-
-        return points
-
-    def draw_polyline(self, polyline, is_highlighted=False, route_index=0):
-        canvas_points = self.polyline_to_canvas(polyline)
-        if len(canvas_points) < 2:
-            return
-        color = self.route_color(route_index) if is_highlighted else "#d0d0d0"
-        width = 4 if is_highlighted else 2
-        for i in range(len(canvas_points) - 1):
-            x1, y1 = canvas_points[i]
-            x2, y2 = canvas_points[i + 1]
-            self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
-
     def route_color(self, idx):
         palette = ["#ff8c42", "#3a86ff", "#8ac926", "#ff006e", "#8338ec"]
         return palette[idx % len(palette)]
@@ -951,9 +866,8 @@ class ICS_GUI:
             self.current_routes = [{"path": path, "cost": cost}]
             self.active_route_index = 0
 
-        self.draw_map(None, origin_id, destination_id)
         self.update_route_selector()
-        self.start_animation()
+        self.render_active_route()
 
         lines = [
             f"Origin: {self.node_label(origin_id)}",
@@ -1004,10 +918,9 @@ class ICS_GUI:
         self.active_route_index = idx
         if self.last_origin_id is None or self.last_destination_id is None:
             return
-        self.draw_map(None, self.last_origin_id, self.last_destination_id)
         if self.current_routes:
             self.route_choice_var.set(f"Route {idx + 1} ({self.current_routes[idx]['cost']:.4f} h)")
-        self.start_animation()
+        self.render_active_route()
 
     def run_single_search(self, method, origin_id, destinations):
         method = method.upper()
@@ -1024,59 +937,6 @@ class ICS_GUI:
         if method == "CUS2":
             return cus2_hcs(self.graph, origin_id, destinations, self.coords)
         raise ValueError(f"Unknown algorithm '{method}'")
-    def start_animation(self):
-        if not self.current_routes:
-            return
-        current = self.current_routes[self.active_route_index]["path"]
-        if len(current) < 2:
-            return
-        points = []
-        for i in range(len(current) - 1):
-            edge = (current[i], current[i + 1])
-            polyline = self.edge_polylines.get(edge)
-            if not polyline:
-                start = self.coords.get(current[i])
-                end = self.coords.get(current[i + 1])
-                if start and end:
-                    polyline = [start, end]
-                else:
-                    continue
-            canvas_points = self.polyline_to_canvas(polyline)
-            if not canvas_points:
-                continue
-            if points:
-                if points[-1] != canvas_points[0]:
-                    points.extend(canvas_points)
-                else:
-                    points.extend(canvas_points[1:])
-            else:
-                points.extend(canvas_points)
-        if len(points) < 2:
-            return
-        if self.animation_after_id is not None:
-            self.map_canvas.after_cancel(self.animation_after_id)
-            self.animation_after_id = None
-        self.animation_points = points
-        self.animation_step = 0
-        self.animation_line_ids = []
-        self.animation_in_progress = True
-        self.animation_after_id = self.map_canvas.after(60, self.advance_animation)
-
-    def advance_animation(self):
-        if not self.animation_in_progress:
-            return
-        if self.animation_step >= len(self.animation_points) - 1:
-            self.animation_in_progress = False
-            self.animation_after_id = None
-            return
-        x1, y1 = self.animation_points[self.animation_step]
-        x2, y2 = self.animation_points[self.animation_step + 1]
-        color = self.route_color(self.active_route_index)
-        line_id = self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
-        self.animation_line_ids.append(line_id)
-        self.animation_step += 1
-        self.animation_after_id = self.map_canvas.after(60, self.advance_animation)
-
 
 def main():
     root = tk.Tk()
