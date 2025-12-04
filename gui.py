@@ -294,7 +294,7 @@ class ICS_GUI:
 
         accident_frame = tk.LabelFrame(
             right,
-            text="Accident Overrides",
+            text="Accident Impact Controls",
             bg="#f5f5f5",
             padx=10,
             pady=10,
@@ -303,7 +303,7 @@ class ICS_GUI:
 
         tk.Label(
             accident_frame,
-            text="Accident Origin:",
+            text="Affected Road Starts At:",
             bg="#f5f5f5",
             anchor="w",
         ).grid(row=0, column=0, sticky="w")
@@ -313,7 +313,7 @@ class ICS_GUI:
 
         tk.Label(
             accident_frame,
-            text="Target:",
+            text="...and Ends At:",
             bg="#f5f5f5",
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=(6, 0))
@@ -323,7 +323,7 @@ class ICS_GUI:
 
         tk.Button(
             accident_frame,
-            text="Add / Update",
+            text="Apply Slowdown",
             command=self.add_custom_accident,
             width=20,
         ).grid(row=2, column=0, columnspan=2, pady=(8, 4))
@@ -344,16 +344,16 @@ class ICS_GUI:
 
         tk.Button(
             btn_row,
-            text="Remove Selected",
+            text="Remove Selected Road",
             command=self.remove_selected_accident,
-            width=16,
+            width=18,
         ).pack(side="left", padx=(0, 6))
 
         tk.Button(
             btn_row,
-            text="Clear All",
+            text="Clear All Slowdowns",
             command=self.clear_custom_accidents,
-            width=10,
+            width=16,
         ).pack(side="left")
 
         self.accident_status_var.set("")
