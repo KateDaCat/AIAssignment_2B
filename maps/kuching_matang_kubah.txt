@@ -1,39 +1,39 @@
 Nodes:
-1: (110.266330,1.574240)
-2: (110.268100,1.572050)
-3: (110.272900,1.573200)
-4: (110.276500,1.573950)
-5: (110.278100,1.573950)
-6: (110.279520,1.574530)
-7: (110.279150,1.574800)
-8: (110.279780,1.576050)
-9: (110.280100,1.577350)
-10: (110.277100,1.576500)
+1: (110.26630,1.57420)    # Kubah National Park Entrance
+2: (110.26850,1.57210)    # Matang Wildlife Centre
+3: (110.27100,1.57280)    # Jalan Matang Gateway
+4: (110.27400,1.57320)    # Taman Sri Matang
+5: (110.27650,1.57380)    # Jalan Matang Mall
+6: (110.27920,1.57450)    # E-Mart Matang
+7: (110.28150,1.57500)    # Swan Commercial Centre
+8: (110.28370,1.57580)    # Akademi Kastam Diraja
+9: (110.28580,1.57660)    # Matang Hospital
+10: (110.28800,1.57720)   # Matang Avenue
 
 Landmarks:
 1: Kubah National Park Entrance
 2: Matang Wildlife Centre
-3: Jalan Matang West
+3: Jalan Matang Gateway
 4: Taman Sri Matang
 5: Jalan Matang Mall
 6: E-Mart Matang
 7: Swan Commercial Centre
 8: Akademi Kastam Diraja
 9: Matang Hospital
-10: Taman Palma Matang
+10: Matang Avenue
 
 Edges:
 (1,2): 0.0100
-(2,3): 0.0150
+(2,3): 0.0120
 (3,4): 0.0080
 (4,5): 0.0065
 (5,6): 0.0045
-(6,7): 0.0020
-(7,8): 0.0030
+(6,7): 0.0030
+(7,8): 0.0035
 (8,9): 0.0040
-(6,10): 0.0060
-(10,9): 0.0055
-(4,10): 0.0085
+(9,10): 0.0035
+(6,9): 0.0070
+(4,8): 0.0105
 
 Origin:
 1
@@ -47,4 +47,4 @@ SEVERITY: Moderate
 MULTIPLIER: 1.3
 
 Final Travel Time:
-FINAL_TRAVEL_TIME: 0.0026 (0.0020 * 1.3)
+FINAL_TRAVEL_TIME: 0.0039 (0.0030 * 1.3)
