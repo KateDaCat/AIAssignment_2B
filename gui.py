@@ -52,7 +52,8 @@ class ICS_GUI:
         self.name_to_id = {}
         self.canvas_points = {}
         self.current_paths = []
-        self.accident_edge_lookup = {}
+        self.accident_origin_menu = None
+        self.accident_target_menu = None
         self.accident_list_keys = []
         self.routes_stale = False
         self.cached_accident_edge_labels = ["(no edges available)"]
@@ -91,10 +92,14 @@ class ICS_GUI:
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
         self.map_label_var = tk.StringVar()
-        self.accident_edge_var = tk.StringVar(value="(select edge)")
+        self.accident_origin_var = tk.StringVar(value="(origin)")
+        self.accident_target_var = tk.StringVar(value="(neighbor)")
         self.accident_status_var = tk.StringVar(value="")
         self.accident_listbox = None
-        self.accident_edge_menu = None
+        self.accident_origin_menu = None
+        self.accident_target_menu = None
+        self.current_accident_origin = None
+        self.current_accident_target = None
 
         if self.current_map_entry.get("map_path"):
             self.load_map_data(self.current_map_entry)
@@ -246,23 +251,33 @@ class ICS_GUI:
 
         tk.Label(
             accident_frame,
-            text="Edge:",
+            text="Accident Origin:",
             bg="#f5f5f5",
             anchor="w",
         ).grid(row=0, column=0, sticky="w")
 
-        self.accident_edge_menu = tk.OptionMenu(accident_frame, self.accident_edge_var, "(no edges)")
-        self.accident_edge_menu.grid(row=0, column=1, sticky="ew")
+        self.accident_origin_menu = tk.OptionMenu(accident_frame, self.accident_origin_var, "(no nodes)")
+        self.accident_origin_menu.grid(row=0, column=1, sticky="ew")
+
+        tk.Label(
+            accident_frame,
+            text="Target:",
+            bg="#f5f5f5",
+            anchor="w",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
+
+        self.accident_target_menu = tk.OptionMenu(accident_frame, self.accident_target_var, "(no neighbors)")
+        self.accident_target_menu.grid(row=1, column=1, sticky="ew", pady=(6, 0))
 
         tk.Button(
             accident_frame,
             text="Add / Update",
             command=self.add_custom_accident,
             width=20,
-        ).grid(row=1, column=0, columnspan=2, pady=(8, 4))
+        ).grid(row=2, column=0, columnspan=2, pady=(8, 4))
 
         list_frame = tk.Frame(accident_frame, bg="#f5f5f5")
-        list_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
+        list_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
         accident_frame.grid_columnconfigure(1, weight=1)
         accident_frame.grid_rowconfigure(3, weight=1)
 
@@ -273,7 +288,7 @@ class ICS_GUI:
         list_scroll.pack(side="right", fill="y")
 
         btn_row = tk.Frame(accident_frame, bg="#f5f5f5")
-        btn_row.grid(row=3, column=0, columnspan=2, pady=(4, 0))
+        btn_row.grid(row=4, column=0, columnspan=2, pady=(4, 0))
 
         tk.Button(
             btn_row,
@@ -290,8 +305,7 @@ class ICS_GUI:
         ).pack(side="left")
 
         self.accident_status_var.set("")
-
-        self.apply_accident_edge_menu_options()
+        self.recompute_accident_edges()
 
         tk.Button(right, text="Run Routing",
                 command=self.run_routing,
@@ -583,28 +597,66 @@ class ICS_GUI:
                 self.destination_var.set(fallback)
 
     def recompute_accident_edges(self):
-        labels = []
-        lookup = {}
-        if self.graph_original:
-            for u in sorted(self.graph_original.keys()):
-                for v, cost in sorted(self.graph_original[u], key=lambda item: item[0]):
-                    label = f"{self.node_label(u)} -> {self.node_label(v)} ({cost:.3f} h)"
-                    labels.append(label)
-                    lookup[label] = (u, v)
-        if not labels:
-            labels = ["(no edges available)"]
-        self.accident_edge_lookup = lookup
-        self.cached_accident_edge_labels = labels
-        self.apply_accident_edge_menu_options()
+        self.update_accident_origin_menu()
 
-    def apply_accident_edge_menu_options(self):
-        if self.accident_edge_menu is None:
+    def update_accident_origin_menu(self):
+        if self.accident_origin_menu is None:
             return
-        menu = self.accident_edge_menu["menu"]
+        menu = self.accident_origin_menu["menu"]
         menu.delete(0, "end")
-        for label in self.cached_accident_edge_labels:
-            menu.add_command(label=label, command=lambda value=label: self.accident_edge_var.set(value))
-        self.accident_edge_var.set(self.cached_accident_edge_labels[0])
+
+        if not self.graph_original:
+            self.accident_origin_var.set("(no nodes)")
+            menu.add_command(label="(no nodes)", command=lambda: None)
+            self.current_accident_origin = None
+            self.update_accident_target_menu(None)
+            return
+
+        nodes = sorted(self.graph_original.keys())
+        if not nodes:
+            self.accident_origin_var.set("(no nodes)")
+            menu.add_command(label="(no nodes)", command=lambda: None)
+            self.current_accident_origin = None
+            self.update_accident_target_menu(None)
+            return
+
+        for node in nodes:
+            label = self.node_label(node)
+            menu.add_command(
+                label=label,
+                command=lambda value=node: self.on_accident_origin_selected(value),
+            )
+        self.on_accident_origin_selected(nodes[0])
+
+    def on_accident_origin_selected(self, node_id):
+        self.current_accident_origin = node_id
+        self.accident_origin_var.set(self.node_label(node_id))
+        neighbors = self.graph_original.get(node_id, [])
+        self.update_accident_target_menu(neighbors)
+
+    def update_accident_target_menu(self, neighbors):
+        if self.accident_target_menu is None:
+            return
+        menu = self.accident_target_menu["menu"]
+        menu.delete(0, "end")
+
+        if not neighbors:
+            self.accident_target_var.set("(no neighbors)")
+            menu.add_command(label="(no neighbors)", command=lambda: None)
+            self.current_accident_target = None
+            return
+
+        for nbr, cost in sorted(neighbors, key=lambda item: item[0]):
+            label = f"{self.node_label(nbr)} ({cost:.3f} h)"
+            menu.add_command(
+                label=label,
+                command=lambda value=nbr: self.on_accident_target_selected(value),
+            )
+        self.on_accident_target_selected(neighbors[0][0])
+
+    def on_accident_target_selected(self, node_id):
+        self.current_accident_target = node_id
+        self.accident_target_var.set(self.node_label(node_id))
 
     def refresh_accident_listbox(self):
         if self.accident_listbox is None:
@@ -622,11 +674,10 @@ class ICS_GUI:
         if not self.graph_original:
             messagebox.showwarning("No graph", "Load a map before adding accidents.")
             return
-        label = self.accident_edge_var.get()
-        edge = self.accident_edge_lookup.get(label)
-        if edge is None:
-            messagebox.showwarning("Invalid edge", "Select an existing edge before adding an accident.")
+        if self.current_accident_origin is None or self.current_accident_target is None:
+            messagebox.showwarning("Invalid edge", "Select an origin and target node.")
             return
+        edge = (self.current_accident_origin, self.current_accident_target)
         multiplier = self.SEVERITY_LEVELS.get("Moderate", 1.35)
         self.user_accidents[edge] = {"severity": "Auto", "multiplier": multiplier}
         self.refresh_accident_listbox()
