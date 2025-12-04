@@ -68,11 +68,16 @@ class ICS_GUI:
         self.map_markers = []
         self.route_paths = []
         self.current_meta_zoom = 15
+        self.edge_polylines = {}
         self.accident_origin_menu = None
         self.accident_target_menu = None
         self.accident_list_keys = []
         self.routes_stale = False
         self.cached_accident_edge_labels = ["(no edges available)"]
+        self.animation_after_id = None
+        self.animation_path_handle = None
+        self.animation_points = []
+        self.animation_step = 0
 
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
@@ -99,11 +104,6 @@ class ICS_GUI:
         self.last_origin_id = None
         self.last_destination_id = None
         self.edge_polylines = {}
-        self.animation_in_progress = False
-        self.animation_points = []
-        self.animation_step = 0
-        self.animation_line_ids = []
-        self.animation_after_id = None
 
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
@@ -429,6 +429,7 @@ class ICS_GUI:
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
         if self.map_widget is None:
             return
+        self.stop_animation()
         self.map_widget.delete_all_marker()
         self.map_widget.delete_all_path()
         self.map_markers = []
@@ -505,6 +506,53 @@ class ICS_GUI:
         if self.current_routes and 0 <= self.active_route_index < len(self.current_routes):
             highlighted = [self.current_routes[self.active_route_index]["path"]]
         self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
+        self.start_animation()
+
+    def stop_animation(self):
+        if self.animation_after_id is not None and self.map_widget is not None:
+            try:
+                self.map_widget.after_cancel(self.animation_after_id)
+            except Exception:
+                pass
+        self.animation_after_id = None
+        if self.animation_path_handle is not None:
+            try:
+                self.animation_path_handle.delete()
+            except Exception:
+                pass
+        self.animation_path_handle = None
+        self.animation_points = []
+        self.animation_step = 0
+
+    def start_animation(self):
+        if not self.current_routes or self.map_widget is None:
+            return
+        if self.active_route_index < 0 or self.active_route_index >= len(self.current_routes):
+            return
+        path = self.current_routes[self.active_route_index]["path"]
+        points = self.build_route_polyline(path)
+        if len(points) < 2:
+            return
+        self.animation_points = points
+        self.animation_step = 1
+        self.animation_color = self.route_color(self.active_route_index)
+        self.advance_animation()
+
+    def advance_animation(self):
+        if not self.animation_points or self.map_widget is None:
+            return
+        if self.animation_step >= len(self.animation_points):
+            self.animation_after_id = None
+            return
+        partial = self.animation_points[: self.animation_step + 1]
+        if self.animation_path_handle is not None:
+            try:
+                self.animation_path_handle.delete()
+            except Exception:
+                pass
+        self.animation_path_handle = self.map_widget.set_path(partial, color=self.animation_color, width=5)
+        self.animation_step += 1
+        self.animation_after_id = self.map_widget.after(80, self.advance_animation)
 
     def discover_map_files(self):
         entries = []
