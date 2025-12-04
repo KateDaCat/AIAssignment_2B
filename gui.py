@@ -79,6 +79,9 @@ class ICS_GUI:
         self.animation_points = []
         self.animation_step = 0
 
+        self.model_options = ["CNN Baseline", "ResNet Transfer", "Vision Transformer"]
+        self.selected_model_var = tk.StringVar(value=self.model_options[0])
+
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
             messagebox.showerror(
@@ -201,12 +204,20 @@ class ICS_GUI:
                                 bg="#ddd", width=40, height=12)
         self.preview.pack(pady=10, padx=10)
 
+        btn_row = tk.Frame(right, bg="#f5f5f5")
+        btn_row.pack(pady=5)
+
         tk.Button(
-            right,
+            btn_row,
             text="Upload Image",
             command=self.upload_image,
-            width=25,
-        ).pack(pady=5)
+            width=20,
+        ).pack(side="left", padx=(0, 10))
+
+        tk.Label(btn_row, text="Model:", bg="#f5f5f5").pack(side="left")
+        model_menu = tk.OptionMenu(btn_row, self.selected_model_var, *self.model_options)
+        model_menu.config(width=18)
+        model_menu.pack(side="left", padx=(6, 0))
 
         self.cnn_label = tk.Label(right, text="CNN Prediction: -",
                                 font=("Arial", 12), anchor="w")
@@ -221,9 +232,12 @@ class ICS_GUI:
                                     fg="darkred")
         self.final_label.pack(fill="x", pady=10)
 
-        tk.Button(right, text="Run Models",
-                command=self.run_ml_prediction,
-                width=25).pack(pady=5)
+        tk.Button(
+            right,
+            text="Run Model",
+            command=self.run_ml_prediction,
+            width=25,
+        ).pack(pady=5)
 
         tk.Label(right, text="---------------------------------").pack(pady=10)
 
@@ -381,14 +395,22 @@ class ICS_GUI:
             messagebox.showwarning("Error", "Upload an accident image first.")
             return
 
-        # TODO: Your Team Will Implement These:
-        cnn_result = "Minor"          # predict_cnn(self.uploaded_img)
-        model2_result = "Moderate"    # predict_model2(self.uploaded_img)
-        final_result = "Moderate"     # combine(cnn_result, model2_result)
+        selected_model = self.selected_model_var.get()
+        placeholder_outputs = {
+            "CNN Baseline": ("Minor", "Stable confidence"),
+            "ResNet Transfer": ("Moderate", "Transfer learning output"),
+            "Vision Transformer": ("Severe", "High attention weight"),
+        }
+        model_result, note = placeholder_outputs.get(
+            selected_model, ("Moderate", "Default response")
+        )
+        cnn_result = model_result
+        model2_result = note
+        final_result = model_result
 
         # Update UI
-        self.cnn_label.config(text=f"CNN Prediction: {cnn_result}")
-        self.model2_label.config(text=f"Model 2 Prediction: {model2_result}")
+        self.cnn_label.config(text=f"{selected_model} Prediction: {cnn_result}")
+        self.model2_label.config(text=f"Notes: {model2_result}")
         self.final_label.config(text=f"Final Severity: {final_result}")
 
         # Store for routing
