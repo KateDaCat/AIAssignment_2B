@@ -258,14 +258,14 @@ class ICS_GUI:
         tk.Label(selections, text="Origin:", anchor="w",
                 bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
         origin_names = self.landmark_names() or ["(none)"]
-        self.origin_var = tk.StringVar(value=origin_names[0])
-        self.origin_menu = tk.OptionMenu(selections, self.origin_var, *origin_names)
+        self.origin_var = tk.StringVar(value="-- choose origin --" if origin_names else "(none)")
+        self.origin_menu = tk.OptionMenu(selections, self.origin_var, "-- choose origin --", *origin_names)
         self.origin_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Destination:", anchor="w",
                 bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        self.destination_var = tk.StringVar(value=origin_names[-1])
-        self.destination_menu = tk.OptionMenu(selections, self.destination_var, *origin_names)
+        self.destination_var = tk.StringVar(value="-- choose destination --" if origin_names else "(none)")
+        self.destination_menu = tk.OptionMenu(selections, self.destination_var, "-- choose destination --", *origin_names)
         self.destination_menu.grid(row=2, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
@@ -644,10 +644,9 @@ class ICS_GUI:
             self.destination_var.set("(none)")
         else:
             if self.origin_var.get() not in names:
-                self.origin_var.set(names[0])
+                self.origin_var.set("-- choose origin --")
             if self.destination_var.get() not in names:
-                fallback = names[1] if len(names) > 1 else names[0]
-                self.destination_var.set(fallback)
+                self.destination_var.set("-- choose destination --")
 
     def recompute_accident_edges(self):
         self.update_accident_origin_menu()
@@ -901,6 +900,13 @@ class ICS_GUI:
 
         origin_name = self.origin_var.get()
         destination_name = self.destination_var.get()
+
+        if origin_name.startswith("--"):
+            messagebox.showwarning("Origin missing", "Please choose an origin landmark.")
+            return
+        if destination_name.startswith("--"):
+            messagebox.showwarning("Destination missing", "Please choose a destination landmark.")
+            return
 
         try:
             origin_id = self.resolve_node(origin_name)
