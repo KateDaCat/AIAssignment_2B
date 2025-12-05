@@ -1,11 +1,18 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+import copy
 import json
 import math
 import os
+import sys
 
 from PIL import Image, ImageTk
+
+try:
+    from tkintermapview import TkinterMapView
+except ImportError:  # pragma: no cover - dependency issue surfaced at runtime
+    TkinterMapView = None
 
 from graph import load_graph
 from topk import yen_k_shortest_paths
@@ -20,14 +27,26 @@ from algorithms.cus2_hcs import cus2_hcs
 # ICS GUI (Assignment 2B)
 # =============================
 class ICS_GUI:
-    CANVAS_WIDTH = 820
-    CANVAS_HEIGHT = 720
+    SEVERITY_LEVELS = {
+        "Minor": 1.15,
+        "Moderate": 1.35,
+        "Severe": 1.75,
+    }
+    CANVAS_WIDTH = 760
+    CANVAS_HEIGHT = 700
     MAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
 
     def __init__(self, root):
         self.root = root
         self.root.title("ICS – Incident Classification System")
         self.root.geometry("1350x750")
+
+        if TkinterMapView is None:
+            messagebox.showerror(
+                "Missing dependency",
+                "tkintermapview is required. Install it with 'pip install tkintermapview'.",
+            )
+            raise SystemExit(1)
 
         # ML prediction placeholders
         self.uploaded_img = None
@@ -36,14 +55,32 @@ class ICS_GUI:
         self.current_severity = None
 
         self.graph = {}
+        self.graph_original = {}
         self.origin_default = None
         self.destination_defaults = []
         self.coords = {}
         self.accident = {}
+        self.user_accidents = {}
         self.landmarks = {}
         self.name_to_id = {}
-        self.canvas_points = {}
         self.current_paths = []
+        self.map_widget = None
+        self.map_markers = []
+        self.route_paths = []
+        self.current_meta_zoom = 15
+        self.edge_polylines = {}
+        self.accident_origin_menu = None
+        self.accident_target_menu = None
+        self.accident_list_keys = []
+        self.routes_stale = False
+        self.cached_accident_edge_labels = ["(no edges available)"]
+        self.animation_after_id = None
+        self.animation_path_handle = None
+        self.animation_points = []
+        self.animation_step = 0
+
+        self.model_options = ["CNN", "Transfer Learning (MobileNetV2)", "Random Forest"]
+        self.selected_model_var = tk.StringVar(value=self.model_options[0])
 
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
@@ -70,15 +107,18 @@ class ICS_GUI:
         self.last_origin_id = None
         self.last_destination_id = None
         self.edge_polylines = {}
-        self.animation_in_progress = False
-        self.animation_points = []
-        self.animation_step = 0
-        self.animation_line_ids = []
-        self.animation_after_id = None
 
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
         self.map_label_var = tk.StringVar()
+        self.accident_origin_var = tk.StringVar(value="(origin)")
+        self.accident_target_var = tk.StringVar(value="(neighbor)")
+        self.accident_status_var = tk.StringVar(value="")
+        self.accident_listbox = None
+        self.accident_origin_menu = None
+        self.accident_target_menu = None
+        self.current_accident_origin = None
+        self.current_accident_target = None
 
         if self.current_map_entry.get("map_path"):
             self.load_map_data(self.current_map_entry)
@@ -96,33 +136,34 @@ class ICS_GUI:
     def build_layout(self):
 
     # --- Main Window Size ---
-        self.root.geometry("1250x700")   # slightly smaller, fits screens better
+        self.root.geometry("1280x720")   # slightly smaller, fits screens better
 
         # ============================
         # LEFT PANEL (Map)
         # ============================
-        left = tk.Frame(self.root, width=850, height=700, bg="white")
+        left = tk.Frame(self.root, width=800, height=700, bg="white")
         left.pack(side="left", fill="both", expand=True)
 
-        self.map_canvas = tk.Canvas(
+        self.map_widget = TkinterMapView(
             left,
-            bg="white",
-            highlightbackground="#ccc",
             width=self.CANVAS_WIDTH,
             height=self.CANVAS_HEIGHT,
+            corner_radius=0,
         )
-        self.map_canvas.pack(fill="both", expand=True)
+        self.map_widget.pack(fill="both", expand=True)
+        self.map_widget.set_zoom(14)
+        self.map_widget.set_position(1.557, 110.343)
 
         # ============================
         # RIGHT PANEL (SCROLLABLE)
         # ============================
 
         # Outer frame holding canvas + scrollbar
-        right_outer = tk.Frame(self.root, width=400, bg="#f5f5f5")
+        right_outer = tk.Frame(self.root, width=480, bg="#f5f5f5")
         right_outer.pack(side="right", fill="y")
 
         # Canvas used for scrolling
-        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=400)
+        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=480)
         right_canvas.pack(side="left", fill="both", expand=True)
 
         # Scrollbar
@@ -135,67 +176,110 @@ class ICS_GUI:
             lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all"))
         )
 
+        def _on_mousewheel(event):
+            if event.delta:
+                right_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        right_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
         # Actual content frame placed INSIDE the canvas
-        right = tk.Frame(right_canvas, bg="#f5f5f5", padx=20, pady=20)
-        right_canvas.create_window((0, 0), window=right, anchor="nw")
+        right_container = tk.Frame(right_canvas, bg="#f5f5f5")
+        right_canvas.create_window((0, 0), window=right_container, anchor="n")
+
+        right = tk.Frame(right_container, bg="#f5f5f5", padx=30, pady=30)
+        right.pack(expand=True)
 
         # ==============================
         # RIGHT SIDE CONTENT (unchanged)
         # ==============================
-        tk.Label(right, text="Accident Image Classification",
-                font=("Arial", 16, "bold")).pack(pady=10)
+        header = tk.Label(
+            right,
+            text="Accident Image Classification",
+            font=("Arial", 16, "bold"),
+            bg="#f5f5f5",
+        )
+        header.pack(pady=10)
 
         self.preview = tk.Label(right, text="No Image Uploaded",
                                 bg="#ddd", width=40, height=12)
-        self.preview.pack(pady=10)
+        self.preview.pack(pady=10, padx=10)
 
-        tk.Button(right, text="Upload Image",
-                command=self.upload_image,
-                width=25).pack(pady=5)
+        btn_row = tk.Frame(right, bg="#f5f5f5")
+        btn_row.pack(pady=5)
 
-        self.cnn_label = tk.Label(right, text="CNN Prediction: -",
-                                font=("Arial", 12), anchor="w")
-        self.cnn_label.pack(fill="x", pady=5)
+        tk.Button(
+            btn_row,
+            text="Upload Image",
+            command=self.upload_image,
+            width=20,
+        ).pack(side="left", padx=(0, 10))
 
-        self.model2_label = tk.Label(right, text="Model 2 Prediction: -",
-                                    font=("Arial", 12), anchor="w")
-        self.model2_label.pack(fill="x", pady=5)
+        tk.Label(btn_row, text="Model:", bg="#f5f5f5").pack(side="left")
+        model_menu = tk.OptionMenu(btn_row, self.selected_model_var, *self.model_options)
+        model_menu.config(width=18)
+        model_menu.pack(side="left", padx=(6, 0))
 
         self.final_label = tk.Label(right, text="Final Severity: -",
                                     font=("Arial", 13, "bold"),
                                     fg="darkred")
         self.final_label.pack(fill="x", pady=10)
 
-        tk.Button(right, text="Run Models",
-                command=self.run_ml_prediction,
-                width=25).pack(pady=5)
+        tk.Button(
+            right,
+            text="Run Model",
+            command=self.run_ml_prediction,
+            width=25,
+        ).pack(pady=5)
 
         tk.Label(right, text="---------------------------------").pack(pady=10)
 
-        tk.Label(right, text="Route Finder", font=("Arial", 16, "bold")).pack()
+        tk.Label(right, text="Route Finder", font=("Arial", 16, "bold"), bg="#f5f5f5").pack()
 
-        selections = tk.Frame(right, bg="#f5f5f5")
-        selections.pack(fill="x", pady=5)
+        routing_wrapper = tk.Frame(right, bg="#f5f5f5")
+        routing_wrapper.pack(fill="x", pady=10, padx=20)
+
+        def make_row(parent, label_text, widget_builder, row_idx):
+            tk.Label(parent, text=label_text, anchor="w", bg="#f5f5f5").grid(row=row_idx, column=0, sticky="w", pady=(4, 0))
+            widget = widget_builder(parent)
+            widget.grid(row=row_idx, column=1, sticky="ew", pady=(4, 0))
+            return widget
+
+        selections = tk.Frame(routing_wrapper, bg="#f5f5f5")
+        selections.pack(fill="x")
+
+        map_labels = [entry["label"] for entry in self.map_entries]
+        self.map_menu = make_row(
+            selections,
+            "Map:",
+            lambda parent: tk.OptionMenu(parent, self.map_var, *map_labels, command=self.on_map_change),
+            0,
+        )
 
         tk.Label(selections, text="Origin:", anchor="w",
-                bg="#f5f5f5").grid(row=0, column=0, sticky="w")
+                bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
         origin_names = self.landmark_names() or ["(none)"]
-        self.origin_var = tk.StringVar(value=origin_names[0])
-        self.origin_menu = tk.OptionMenu(selections, self.origin_var, *origin_names)
-        self.origin_menu.grid(row=0, column=1, sticky="ew")
+        self.origin_var = tk.StringVar(value="-- choose origin --" if origin_names else "(none)")
+        self.origin_menu = tk.OptionMenu(selections, self.origin_var, "-- choose origin --", *origin_names)
+        self.origin_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Destination:", anchor="w",
-                bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        self.destination_var = tk.StringVar(value=origin_names[-1])
-        self.destination_menu = tk.OptionMenu(selections, self.destination_var, *origin_names)
-        self.destination_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
+                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self.destination_var = tk.StringVar(value="-- choose destination --" if origin_names else "(none)")
+        self.destination_menu = tk.OptionMenu(selections, self.destination_var, "-- choose destination --", *origin_names)
+        self.destination_menu.grid(row=2, column=1, sticky="ew", pady=(8, 0))
+
+        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        self.algorithm_var = tk.StringVar(value="CUS1")
+        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
+        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
+        self.algorithm_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Number of routes (k):", anchor="w",
-                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
+                bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.k_var = tk.StringVar(value="3")
-        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=2, column=1, sticky="w")
+        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=4, column=1, sticky="w")
         tk.Label(selections, text="Display route:", anchor="w",
-                bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(4, 0))
+                bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(4, 0))
         self.route_choice_var = tk.StringVar(value="Route 1")
         self.route_choice_menu = tk.OptionMenu(
             selections,
@@ -203,21 +287,77 @@ class ICS_GUI:
             "Route 1",
             command=self.on_route_option_selected,
         )
-        self.route_choice_menu.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(4, 0))
+        self.route_choice_menu.grid(row=5, column=1, columnspan=3, sticky="ew", pady=(4, 0))
         self.route_choice_menu.config(state="disabled")
 
-        tk.Label(selections, text="Map:", anchor="w", bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        map_labels = [entry["label"] for entry in self.map_entries]
-        self.map_menu = tk.OptionMenu(selections, self.map_var, *map_labels, command=self.on_map_change)
-        self.map_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
-
-        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(8, 0))
-        self.algorithm_var = tk.StringVar(value="CUS1")
-        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
-        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
-        self.algorithm_menu.grid(row=5, column=1, sticky="ew", pady=(8, 0))
-
         selections.grid_columnconfigure(1, weight=1)
+
+        accident_frame = tk.LabelFrame(
+            right,
+            text="Accident Impact Controls",
+            bg="#f5f5f5",
+            padx=10,
+            pady=10,
+        )
+        accident_frame.pack(fill="x", pady=10)
+
+        tk.Label(
+            accident_frame,
+            text="Affected Road Starts At:",
+            bg="#f5f5f5",
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+
+        self.accident_origin_menu = tk.OptionMenu(accident_frame, self.accident_origin_var, "(no nodes)")
+        self.accident_origin_menu.grid(row=0, column=1, sticky="ew")
+
+        tk.Label(
+            accident_frame,
+            text="...and Ends At:",
+            bg="#f5f5f5",
+            anchor="w",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
+
+        self.accident_target_menu = tk.OptionMenu(accident_frame, self.accident_target_var, "(no neighbors)")
+        self.accident_target_menu.grid(row=1, column=1, sticky="ew", pady=(6, 0))
+
+        tk.Button(
+            accident_frame,
+            text="Apply Slowdown",
+            command=self.add_custom_accident,
+            width=20,
+        ).grid(row=2, column=0, columnspan=2, pady=(8, 4))
+
+        list_frame = tk.Frame(accident_frame, bg="#f5f5f5")
+        list_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
+        accident_frame.grid_columnconfigure(1, weight=1)
+        accident_frame.grid_rowconfigure(3, weight=1)
+
+        list_scroll = tk.Scrollbar(list_frame, orient="vertical")
+        self.accident_listbox = tk.Listbox(list_frame, height=5, yscrollcommand=list_scroll.set)
+        self.accident_listbox.pack(side="left", fill="both", expand=True)
+        list_scroll.config(command=self.accident_listbox.yview)
+        list_scroll.pack(side="right", fill="y")
+
+        btn_row = tk.Frame(accident_frame, bg="#f5f5f5")
+        btn_row.grid(row=4, column=0, columnspan=2, pady=(4, 0))
+
+        tk.Button(
+            btn_row,
+            text="Remove Selected Road",
+            command=self.remove_selected_accident,
+            width=18,
+        ).pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            btn_row,
+            text="Clear All Slowdowns",
+            command=self.clear_custom_accidents,
+            width=16,
+        ).pack(side="left")
+
+        self.accident_status_var.set("")
+        self.recompute_accident_edges()
 
         tk.Button(right, text="Run Routing",
                 command=self.run_routing,
@@ -259,14 +399,22 @@ class ICS_GUI:
             messagebox.showwarning("Error", "Upload an accident image first.")
             return
 
-        # TODO: Your Team Will Implement These:
-        cnn_result = "Minor"          # predict_cnn(self.uploaded_img)
-        model2_result = "Moderate"    # predict_model2(self.uploaded_img)
-        final_result = "Moderate"     # combine(cnn_result, model2_result)
+        selected_model = self.selected_model_var.get()
+        placeholder_outputs = {
+            "CNN": ("Minor", "CNN logits indicate low severity"),
+            "Transfer Learning (MobileNetV2)": ("Moderate", "MobileNetV2 features suggest caution"),
+            "Random Forest": ("Severe", "Ensemble votes for severe incident"),
+        }
+        model_result, note = placeholder_outputs.get(
+            selected_model, ("Moderate", "Default response")
+        )
+        cnn_result = model_result
+        model2_result = note
+        final_result = model_result
 
         # Update UI
-        self.cnn_label.config(text=f"CNN Prediction: {cnn_result}")
-        self.model2_label.config(text=f"Model 2 Prediction: {model2_result}")
+        self.cnn_label.config(text=f"{selected_model} Prediction: {cnn_result}")
+        self.model2_label.config(text=f"Notes: {model2_result}")
         self.final_label.config(text=f"Final Severity: {final_result}")
 
         # Store for routing
@@ -304,146 +452,145 @@ class ICS_GUI:
 
         self.load_background_assets(entry)
         self.name_to_id = {name: node for node, name in self.landmarks.items()}
-        self.compute_canvas_points()
         if hasattr(self, "origin_menu"):
             self.refresh_landmark_menus()
+        meta = entry.get("meta") or {}
+        self.current_meta_zoom = meta.get("zoom", 15)
+        self.graph_original = copy.deepcopy(self.graph)
+        self.user_accidents = {}
+        self.routes_stale = False
+        self.accident_status_var.set("No custom accidents.")
+        self.recompute_accident_edges()
+        self.refresh_accident_listbox()
         self.current_routes = []
         self.active_route_index = 0
         if hasattr(self, "route_selector_frame"):
             self.update_route_selector()
-
-    def compute_canvas_points(self):
-        if not self.coords:
-            self.canvas_points = {}
-            return
-
-        using_projection = bool(self.current_extent and self.current_projection == "web_mercator")
-        if using_projection:
-            min_x = self.current_extent["xmin"]
-            max_x = self.current_extent["xmax"]
-            min_y = self.current_extent["ymin"]
-            max_y = self.current_extent["ymax"]
-            display_width, display_height = self.background_display_size
-            offset_x, offset_y = self.background_offset
-            span_x = max(max_x - min_x, 1e-5)
-            span_y = max(max_y - min_y, 1e-5)
-            scale_x = display_width / span_x
-            scale_y = display_height / span_y
-
-            self.canvas_points = {}
-            for node, (lon, lat) in self.coords.items():
-                x_m, y_m = self.lonlat_to_webmerc(lon, lat)
-                px = offset_x + (x_m - min_x) * scale_x
-                py = offset_y + display_height - (y_m - min_y) * scale_y
-                self.canvas_points[node] = (px, py)
-            return
-
-        xs = [pt[0] for pt in self.coords.values()]
-        ys = [pt[1] for pt in self.coords.values()]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-
-        span_x = max(max_x - min_x, 1e-5)
-        span_y = max(max_y - min_y, 1e-5)
-        margin = 40
-        scale = min(
-            (self.CANVAS_WIDTH - 2 * margin) / span_x,
-            (self.CANVAS_HEIGHT - 2 * margin) / span_y,
-        )
-        offset_x = (self.CANVAS_WIDTH - span_x * scale) / 2
-        offset_y = (self.CANVAS_HEIGHT - span_y * scale) / 2
-
-        self.canvas_points = {}
-        for node, (lon, lat) in self.coords.items():
-            px = offset_x + (lon - min_x) * scale
-            py = self.CANVAS_HEIGHT - (offset_y + (lat - min_y) * scale)
-            self.canvas_points[node] = (px, py)
+        default_destination = self.destination_defaults[0] if self.destination_defaults else None
+        self.draw_map(origin=self.origin_default, destination=default_destination)
 
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
-        self.map_canvas.delete("all")
-        if self.animation_in_progress:
-            self.animation_in_progress = False
-            self.animation_line_ids = []
-            if self.animation_after_id is not None:
-                self.map_canvas.after_cancel(self.animation_after_id)
-                self.animation_after_id = None
-        if self.map_background_image:
-            self.map_canvas.create_image(
-                0,
-                0,
-                image=self.map_background_image,
-                anchor="nw",
-            )
+        if self.map_widget is None:
+            return
+        self.stop_animation()
+        self.map_widget.delete_all_marker()
+        self.map_widget.delete_all_path()
+        self.map_markers = []
+        self.route_paths = []
 
-        if not self.canvas_points:
-            self.map_canvas.create_text(
-                self.CANVAS_WIDTH / 2,
-                self.CANVAS_HEIGHT / 2,
-                text="No map data loaded",
-                fill="gray",
-            )
+        if not self.coords:
+            self.map_widget.set_position(1.557, 110.343)
+            self.map_widget.set_zoom(13)
             return
 
-        highlighted_edges = {}
-        if highlighted_paths:
-            for idx, path in enumerate(highlighted_paths):
-                for i in range(len(path) - 1):
-                    highlighted_edges[(path[i], path[i + 1])] = idx
+        lats = [lat for (_, lat) in self.coords.values()]
+        lons = [lon for (lon, _) in self.coords.values()]
+        center_lat = sum(lats) / len(lats)
+        center_lon = sum(lons) / len(lons)
+        self.map_widget.set_position(center_lat, center_lon)
+        self.map_widget.set_zoom(self.current_meta_zoom or 15)
 
-        # Pass 1: draw base edges
-        for u, neighbors in self.graph.items():
-            for v, _ in neighbors:
-                polyline = self.edge_polylines.get((u, v))
-                if polyline:
-                    self.draw_polyline(polyline, is_highlighted=False)
-                else:
-                    x1, y1 = self.canvas_points.get(u, (0, 0))
-                    x2, y2 = self.canvas_points.get(v, (0, 0))
-                    self.map_canvas.create_line(x1, y1, x2, y2, fill="#d0d0d0", width=2)
-
-        # Pass 2: draw highlighted edges on top
-        for edge, idx in highlighted_edges.items():
-            u, v = edge
-            polyline = self.edge_polylines.get(edge)
-            if polyline:
-                self.draw_polyline(
-                    polyline,
-                    is_highlighted=True,
-                    route_index=idx,
-                )
-            else:
-                x1, y1 = self.canvas_points.get(u, (0, 0))
-                x2, y2 = self.canvas_points.get(v, (0, 0))
-                color = self.route_color(idx)
-                self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
-
-        for node, (x, y) in self.canvas_points.items():
-            fill = "#0077b6"
-            radius = 6
-            if node == origin:
-                fill = "#2a9d8f"
-                radius = 7
-            elif node == destination:
-                fill = "#e63946"
-                radius = 7
-            self.map_canvas.create_oval(
-                x - radius,
-                y - radius,
-                x + radius,
-                y + radius,
-                fill=fill,
-                outline="white",
-                width=2,
-            )
+        for node in sorted(self.coords.keys()):
+            lon, lat = self.coords[node]
             label = self.landmarks.get(node, str(node))
-            self.map_canvas.create_text(
-                x + 10,
-                y - 10,
-                text=label,
-                anchor="w",
-                font=("Arial", 9),
-                fill="#333",
-            )
+            if node == origin:
+                display_label = f"Origin: {label}"
+            elif node == destination:
+                display_label = f"Destination: {label}"
+            else:
+                display_label = label
+            marker = self.map_widget.set_marker(lat, lon, text=display_label)
+            self.map_markers.append(marker)
+
+        if not highlighted_paths:
+            return
+
+        self.route_paths = []
+
+    def build_route_polyline(self, node_path):
+        if not node_path:
+            return []
+        latlon_points = []
+        for idx in range(len(node_path) - 1):
+            u = node_path[idx]
+            v = node_path[idx + 1]
+            polyline = self.edge_polylines.get((u, v))
+            segment = []
+            if polyline:
+                segment = [(lat, lon) for lon, lat in polyline]
+            else:
+                start = self.coords.get(u)
+                end = self.coords.get(v)
+                if start:
+                    segment.append((start[1], start[0]))
+                if end:
+                    segment.append((end[1], end[0]))
+            for point in segment:
+                if latlon_points and latlon_points[-1] == point:
+                    continue
+                latlon_points.append(point)
+        if len(latlon_points) < 2:
+            for node in node_path:
+                coord = self.coords.get(node)
+                if coord:
+                    point = (coord[1], coord[0])
+                    if latlon_points and latlon_points[-1] == point:
+                        continue
+                    latlon_points.append(point)
+        return latlon_points
+
+    def render_active_route(self):
+        highlighted = []
+        if self.current_routes and 0 <= self.active_route_index < len(self.current_routes):
+            highlighted = [self.current_routes[self.active_route_index]["path"]]
+        self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
+        self.start_animation()
+
+    def stop_animation(self):
+        if self.animation_after_id is not None and self.map_widget is not None:
+            try:
+                self.map_widget.after_cancel(self.animation_after_id)
+            except Exception:
+                pass
+        self.animation_after_id = None
+        if self.animation_path_handle is not None:
+            try:
+                self.animation_path_handle.delete()
+            except Exception:
+                pass
+        self.animation_path_handle = None
+        self.animation_points = []
+        self.animation_step = 0
+
+    def start_animation(self):
+        if not self.current_routes or self.map_widget is None:
+            return
+        if self.active_route_index < 0 or self.active_route_index >= len(self.current_routes):
+            return
+        path = self.current_routes[self.active_route_index]["path"]
+        points = self.build_route_polyline(path)
+        if len(points) < 2:
+            return
+        self.animation_points = points
+        self.animation_step = 1
+        self.animation_color = self.route_color(self.active_route_index)
+        self.advance_animation()
+
+    def advance_animation(self):
+        if not self.animation_points or self.map_widget is None:
+            return
+        if self.animation_step >= len(self.animation_points):
+            self.animation_after_id = None
+            return
+        partial = self.animation_points[: self.animation_step + 1]
+        if self.animation_path_handle is not None:
+            try:
+                self.animation_path_handle.delete()
+            except Exception:
+                pass
+        self.animation_path_handle = self.map_widget.set_path(partial, color=self.animation_color, width=5)
+        self.animation_step += 1
+        self.animation_after_id = self.map_widget.after(80, self.advance_animation)
 
     def discover_map_files(self):
         entries = []
@@ -497,10 +644,151 @@ class ICS_GUI:
             self.destination_var.set("(none)")
         else:
             if self.origin_var.get() not in names:
-                self.origin_var.set(names[0])
+                self.origin_var.set("-- choose origin --")
             if self.destination_var.get() not in names:
-                fallback = names[1] if len(names) > 1 else names[0]
-                self.destination_var.set(fallback)
+                self.destination_var.set("-- choose destination --")
+
+    def recompute_accident_edges(self):
+        self.update_accident_origin_menu()
+
+    def update_accident_origin_menu(self):
+        if self.accident_origin_menu is None:
+            return
+        menu = self.accident_origin_menu["menu"]
+        menu.delete(0, "end")
+
+        if not self.graph_original:
+            self.accident_origin_var.set("(no nodes)")
+            menu.add_command(label="(no nodes)", command=lambda: None)
+            self.current_accident_origin = None
+            self.update_accident_target_menu(None)
+            return
+
+        nodes = sorted(self.graph_original.keys())
+        if not nodes:
+            self.accident_origin_var.set("(no nodes)")
+            menu.add_command(label="(no nodes)", command=lambda: None)
+            self.current_accident_origin = None
+            self.update_accident_target_menu(None)
+            return
+
+        placeholder = "-- choose start --"
+        self.accident_origin_var.set(placeholder)
+        menu.add_command(label=placeholder, command=lambda: self.reset_accident_selection())
+        for node in nodes:
+            label = self.node_label(node)
+            menu.add_command(
+                label=label,
+                command=lambda value=node: self.on_accident_origin_selected(value),
+            )
+        self.update_accident_target_menu(None)
+
+    def reset_accident_selection(self):
+        self.current_accident_origin = None
+        self.current_accident_target = None
+        self.accident_origin_var.set("-- choose start --")
+        self.accident_target_var.set("-- choose end --")
+        self.update_accident_target_menu(None)
+
+    def on_accident_origin_selected(self, node_id):
+        self.current_accident_origin = node_id
+        self.accident_origin_var.set(self.node_label(node_id))
+        neighbors = self.graph_original.get(node_id, [])
+        self.update_accident_target_menu(neighbors)
+
+    def update_accident_target_menu(self, neighbors):
+        if self.accident_target_menu is None:
+            return
+        menu = self.accident_target_menu["menu"]
+        menu.delete(0, "end")
+
+        if not neighbors:
+            self.accident_target_var.set("-- choose end --")
+            menu.add_command(label="(select origin first)", command=lambda: None)
+            self.current_accident_target = None
+            return
+
+        for nbr, cost in sorted(neighbors, key=lambda item: item[0]):
+            label = f"{self.node_label(nbr)} ({cost:.3f} h)"
+            menu.add_command(
+                label=label,
+                command=lambda value=nbr: self.on_accident_target_selected(value),
+            )
+        self.on_accident_target_selected(neighbors[0][0])
+
+    def on_accident_target_selected(self, node_id):
+        self.current_accident_target = node_id
+        self.accident_target_var.set(self.node_label(node_id))
+
+    def refresh_accident_listbox(self):
+        if self.accident_listbox is None:
+            return
+        self.accident_listbox.delete(0, tk.END)
+        self.accident_list_keys = []
+        for edge in sorted(self.user_accidents.keys()):
+            info = self.user_accidents[edge]
+            u, v = edge
+            label = f"{self.node_label(u)} -> {self.node_label(v)} ({info['severity']} ×{info['multiplier']:.2f})"
+            self.accident_listbox.insert(tk.END, label)
+            self.accident_list_keys.append(edge)
+
+    def add_custom_accident(self):
+        if not self.graph_original:
+            messagebox.showwarning("No graph", "Load a map before adding accidents.")
+            return
+        if self.current_accident_origin is None or self.current_accident_target is None:
+            messagebox.showwarning("Invalid edge", "Select an origin and target node.")
+            return
+        edge = (self.current_accident_origin, self.current_accident_target)
+        multiplier = self.SEVERITY_LEVELS.get("Moderate", 1.35)
+        self.user_accidents[edge] = {"severity": "Auto", "multiplier": multiplier}
+        self.refresh_accident_listbox()
+        self.rebuild_graph_with_accidents()
+
+    def remove_selected_accident(self):
+        if not self.accident_list_keys:
+            return
+        selection = self.accident_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Select entry", "Choose an accident entry to remove.")
+            return
+        idx = selection[0]
+        edge = self.accident_list_keys[idx]
+        if edge in self.user_accidents:
+            del self.user_accidents[edge]
+        self.refresh_accident_listbox()
+        self.rebuild_graph_with_accidents()
+
+    def clear_custom_accidents(self):
+        if not self.user_accidents:
+            return
+        self.user_accidents.clear()
+        self.refresh_accident_listbox()
+        self.rebuild_graph_with_accidents()
+
+    def rebuild_graph_with_accidents(self):
+        if not self.graph_original:
+            return
+        new_graph = {
+            node: [(nbr, cost) for nbr, cost in neighbors]
+            for node, neighbors in self.graph_original.items()
+        }
+        for (u, v), info in self.user_accidents.items():
+            if u not in new_graph:
+                continue
+            updated = []
+            applied = False
+            for nbr, cost in new_graph[u]:
+                if nbr == v:
+                    updated.append((nbr, cost * info["multiplier"]))
+                    applied = True
+                else:
+                    updated.append((nbr, cost))
+            if applied:
+                new_graph[u] = updated
+        self.graph = new_graph
+        self.routes_stale = True
+        self.render_active_route()
 
     def on_map_change(self, selection):
         for entry in self.map_entries:
@@ -591,59 +879,6 @@ class ICS_GUI:
         y = r * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
         return x, y
 
-    def polyline_to_canvas(self, polyline):
-        using_projection = bool(self.current_extent and self.current_projection == "web_mercator")
-        points = []
-        if using_projection:
-            min_x = self.current_extent["xmin"]
-            max_x = self.current_extent["xmax"]
-            min_y = self.current_extent["ymin"]
-            max_y = self.current_extent["ymax"]
-            display_width, display_height = self.background_display_size
-            offset_x, offset_y = self.background_offset
-            span_x = max(max_x - min_x, 1e-5)
-            span_y = max(max_y - min_y, 1e-5)
-            scale_x = display_width / span_x
-            scale_y = display_height / span_y
-
-            for lon, lat in polyline:
-                x_m, y_m = self.lonlat_to_webmerc(lon, lat)
-                px = offset_x + (x_m - min_x) * scale_x
-                py = offset_y + display_height - (y_m - min_y) * scale_y
-                points.append((px, py))
-        else:
-            xs = [pt[0] for pt in self.coords.values()]
-            ys = [pt[1] for pt in self.coords.values()]
-            min_x, max_x = min(xs), max(xs)
-            min_y, max_y = min(ys), max(ys)
-            span_x = max(max_x - min_x, 1e-5)
-            span_y = max(max_y - min_y, 1e-5)
-            margin = 40
-            scale = min(
-                (self.CANVAS_WIDTH - 2 * margin) / span_x,
-                (self.CANVAS_HEIGHT - 2 * margin) / span_y,
-            )
-            offset_x = (self.CANVAS_WIDTH - span_x * scale) / 2
-            offset_y = (self.CANVAS_HEIGHT - span_y * scale) / 2
-
-            for lon, lat in polyline:
-                px = offset_x + (lon - min_x) * scale
-                py = self.CANVAS_HEIGHT - (offset_y + (lat - min_y) * scale)
-                points.append((px, py))
-
-        return points
-
-    def draw_polyline(self, polyline, is_highlighted=False, route_index=0):
-        canvas_points = self.polyline_to_canvas(polyline)
-        if len(canvas_points) < 2:
-            return
-        color = self.route_color(route_index) if is_highlighted else "#d0d0d0"
-        width = 4 if is_highlighted else 2
-        for i in range(len(canvas_points) - 1):
-            x1, y1 = canvas_points[i]
-            x2, y2 = canvas_points[i + 1]
-            self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
-
     def route_color(self, idx):
         palette = ["#ff8c42", "#3a86ff", "#8ac926", "#ff006e", "#8338ec"]
         return palette[idx % len(palette)]
@@ -665,6 +900,13 @@ class ICS_GUI:
 
         origin_name = self.origin_var.get()
         destination_name = self.destination_var.get()
+
+        if origin_name.startswith("--"):
+            messagebox.showwarning("Origin missing", "Please choose an origin landmark.")
+            return
+        if destination_name.startswith("--"):
+            messagebox.showwarning("Destination missing", "Please choose a destination landmark.")
+            return
 
         try:
             origin_id = self.resolve_node(origin_name)
@@ -726,9 +968,8 @@ class ICS_GUI:
             self.current_routes = [{"path": path, "cost": cost}]
             self.active_route_index = 0
 
-        self.draw_map(None, origin_id, destination_id)
         self.update_route_selector()
-        self.start_animation()
+        self.render_active_route()
 
         lines = [
             f"Origin: {self.node_label(origin_id)}",
@@ -747,6 +988,7 @@ class ICS_GUI:
         lines.append(f"Nodes expanded: {nodes_expanded}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
+        self.routes_stale = False
 
     def update_route_selector(self):
         if len(self.current_routes) <= 1:
@@ -778,10 +1020,9 @@ class ICS_GUI:
         self.active_route_index = idx
         if self.last_origin_id is None or self.last_destination_id is None:
             return
-        self.draw_map(None, self.last_origin_id, self.last_destination_id)
         if self.current_routes:
             self.route_choice_var.set(f"Route {idx + 1} ({self.current_routes[idx]['cost']:.4f} h)")
-        self.start_animation()
+        self.render_active_route()
 
     def run_single_search(self, method, origin_id, destinations):
         method = method.upper()
@@ -798,64 +1039,14 @@ class ICS_GUI:
         if method == "CUS2":
             return cus2_hcs(self.graph, origin_id, destinations, self.coords)
         raise ValueError(f"Unknown algorithm '{method}'")
-    def start_animation(self):
-        if not self.current_routes:
-            return
-        current = self.current_routes[self.active_route_index]["path"]
-        if len(current) < 2:
-            return
-        points = []
-        for i in range(len(current) - 1):
-            edge = (current[i], current[i + 1])
-            polyline = self.edge_polylines.get(edge)
-            if not polyline:
-                start = self.coords.get(current[i])
-                end = self.coords.get(current[i + 1])
-                if start and end:
-                    polyline = [start, end]
-                else:
-                    continue
-            canvas_points = self.polyline_to_canvas(polyline)
-            if not canvas_points:
-                continue
-            if points:
-                if points[-1] != canvas_points[0]:
-                    points.extend(canvas_points)
-                else:
-                    points.extend(canvas_points[1:])
-            else:
-                points.extend(canvas_points)
-        if len(points) < 2:
-            return
-        if self.animation_after_id is not None:
-            self.map_canvas.after_cancel(self.animation_after_id)
-            self.animation_after_id = None
-        self.animation_points = points
-        self.animation_step = 0
-        self.animation_line_ids = []
-        self.animation_in_progress = True
-        self.animation_after_id = self.map_canvas.after(60, self.advance_animation)
-
-    def advance_animation(self):
-        if not self.animation_in_progress:
-            return
-        if self.animation_step >= len(self.animation_points) - 1:
-            self.animation_in_progress = False
-            self.animation_after_id = None
-            return
-        x1, y1 = self.animation_points[self.animation_step]
-        x2, y2 = self.animation_points[self.animation_step + 1]
-        color = self.route_color(self.active_route_index)
-        line_id = self.map_canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
-        self.animation_line_ids.append(line_id)
-        self.animation_step += 1
-        self.animation_after_id = self.map_canvas.after(60, self.advance_animation)
-
 
 def main():
     root = tk.Tk()
     ICS_GUI(root)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        root.destroy()
 
 
 if __name__ == "__main__":

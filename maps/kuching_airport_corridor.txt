@@ -1,0 +1,34 @@
+Nodes:
+1: (110.34177081614432,1.4873996468695103)
+2: (110.33995920924441,1.4905402301555795)
+3: (110.33780,1.47820)
+4: (110.33532680720366,1.4727491562706154)
+5: (110.3329256689021,1.484422037459582)
+6: (110.33056468161541,1.4825888651134826)
+7: (110.32827718683153,1.4734832305104373)
+
+Landmarks:
+1: Kuching International Airport
+2: Raia Hotel & Convention Centre
+3: Jalan Liu Shan Bang Junction
+4: Sarawak Forestry Corporation
+5: Farley Kuching
+6: Big Canteen Food Court
+7: PETRONAS Batu 7 Jalan Penrissen
+
+Edges:
+(1,2): 0.0055
+(2,3): 0.0140
+(3,4): 0.0085
+(4,7): 0.0040
+(4,6): 0.0045
+(6,5): 0.0060
+(5,1): 0.0065
+(6,1): 0.0070
+
+Origin:
+1
+
+Destinations:
+4;5
+

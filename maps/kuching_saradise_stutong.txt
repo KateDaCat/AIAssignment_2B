@@ -1,0 +1,35 @@
+Nodes:
+1: (110.353700,1.520200)
+2: (110.355200,1.518900)
+3: (110.359100,1.512800)
+4: (110.358500,1.515700)
+5: (110.360900,1.516200)
+6: (110.363400,1.512100)
+7: (110.366100,1.515000)
+8: (110.363000,1.518300)
+
+Landmarks:
+1: Vivacity Megamall
+2: CityOne Link Road
+3: Saradise Kuching
+4: Stutong Market
+5: Lorong 7B Stutong
+6: Stutong Forest Park
+7: KPJ Kuching Specialist Hospital
+8: Taman Sri Stutong
+
+Edges:
+(1,2): 0.007143
+(1,4): 0.006931
+(2,8): 0.012913
+(3,4): 0.002540
+(4,5): 0.000534
+(5,8): 0.008332
+(6,7): 0.005657
+
+Origin:
+1
+
+Destinations:
+3;7
+

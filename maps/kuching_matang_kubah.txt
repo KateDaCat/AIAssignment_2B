@@ -1,0 +1,43 @@
+Nodes:
+1: (110.26633,1.57424)
+2: (110.26810,1.57205)
+3: (110.27290,1.57320)
+4: (110.27650,1.57395)
+5: (110.27810,1.57395)
+6: (110.30321,1.57200)
+7: (110.29714,1.57429)
+8: (110.28040,1.57619)
+9: (110.29398,1.57530)
+10: (110.28341,1.57665)
+
+Landmarks:
+1: Kubah National Park Entrance
+2: Matang Wildlife Centre
+3: Jalan Matang West
+4: Taman Sri Matang
+5: Jalan Matang Mall
+6: Emart Matang
+7: Matang Clinic
+8: Matang Avenue
+9: Matang Jaya Commercial Centre
+10: Matang Hospital
+
+Edges:
+(1,2): 0.0100
+(2,3): 0.0150
+(3,4): 0.0085
+(4,5): 0.0065
+(5,6): 0.0150
+(6,7): 0.0075
+(7,9): 0.0090
+(9,10): 0.0080
+(5,8): 0.0100
+(8,10): 0.0065
+(6,8): 0.0072
+
+Origin:
+9
+
+Destinations:
+6;10
+
