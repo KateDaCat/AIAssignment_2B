@@ -289,9 +289,9 @@ class OSMSpec:
     origin_name: str
     destination_names: List[str]
     connections: List[Tuple[str, str]]
-    accident_connection: Tuple[str, str]
-    accident_severity: str
-    accident_multiplier: float
+    accident_connection: Tuple[str, str] | None = None
+    accident_severity: str = ""
+    accident_multiplier: float = 1.0
     zoom: int = 16
 
 
@@ -529,11 +529,18 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
     origin = resolve_newid(spec.origin_name)
     destinations = [resolve_newid(name) for name in spec.destination_names]
 
-    accident_edge = tuple(resolve_newid(name) for name in spec.accident_connection)
-    accident_base = edges.get(accident_edge)
-    if accident_base is None:
-        (u, v), accident_base = next(iter(edges.items()))
-        accident_edge = (u, v)
+    accident_edge: Tuple[int, int] | None = None
+    accident_base: float | None = None
+    if spec.accident_connection:
+        try:
+            accident_edge = tuple(resolve_newid(name) for name in spec.accident_connection)  # type: ignore[arg-type]
+        except ValueError:
+            accident_edge = None
+        else:
+            accident_base = edges.get(accident_edge)
+            if accident_base is None and edges:
+                (u, v), accident_base = next(iter(edges.items()))
+                accident_edge = (u, v)
 
     write_ics(
         dest,
