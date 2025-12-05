@@ -3,49 +3,55 @@ Nodes:
 2: (110.34560,1.48320)
 3: (110.34330,1.48160)
 4: (110.33780,1.47820)
-5: (110.33130,1.47460)
-6: (110.32980,1.47270)
-7: (110.33533,1.47275)
-8: (110.33293,1.48442)
-9: (110.33056,1.48259)
-10: (110.32828,1.47348)
+5: (110.32980,1.47270)
+6: (110.33533,1.47275)
+7: (110.33293,1.48442)
+8: (110.33056,1.48259)
+9: (110.32828,1.47348)
 
 Landmarks:
 1: Kuching International Airport
 2: Airport Logistics Gate
 3: Airport Road Petronas
 4: Jalan Liu Shan Bang Junction
-5: Shell 7th Mile
-6: 7th Mile Market
-7: Sarawak Forestry Corporation
-8: Farley Kuching
-9: Big Canteen Food Court
-10: PETRONAS Batu 7 Jalan Penrissen
+5: 7th Mile Market
+6: Sarawak Forestry Corporation
+7: Farley Kuching
+8: Big Canteen Food Court
+9: PETRONAS Batu 7 Jalan Penrissen
 
 Edges:
 (1,2): 0.0100
+(2,1): 0.0100
 (2,3): 0.0075
+(3,2): 0.0075
 (3,4): 0.0100
-(4,5): 0.0120
-(5,6): 0.0060
-(6,7): 0.0045
-(7,10): 0.0040
-(10,6): 0.0045
-(6,9): 0.0055
-(9,8): 0.0060
-(8,1): 0.0070
-(9,5): 0.0045
+(4,3): 0.0100
+(4,5): 0.0085
+(5,4): 0.0085
+(5,6): 0.0045
+(6,5): 0.0045
+(6,9): 0.0035
+(9,6): 0.0035
+(5,9): 0.0040
+(9,5): 0.0040
+(5,8): 0.0055
+(8,5): 0.0055
+(8,7): 0.0040
+(7,8): 0.0040
+(7,1): 0.0060
+(1,7): 0.0060
 
 Origin:
 1
 
 Destinations:
-5;8
+5;6
 
 Accident Update:
-ACCIDENT_EDGE: (7,10)
+ACCIDENT_EDGE: (6,9)
 SEVERITY: Severe
 MULTIPLIER: 1.8
 
 Final Travel Time:
-FINAL_TRAVEL_TIME: 0.0072 (0.0040 * 1.8)
+FINAL_TRAVEL_TIME: 0.0063 (0.0035 * 1.8)
