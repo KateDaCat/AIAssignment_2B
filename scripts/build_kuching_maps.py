@@ -955,10 +955,7 @@ def main():
                 accident_severity="Moderate",
                 accident_multiplier=1.3,
                 zoom=16,
-            ),
-            OSMSpec(
-                name="kuching_matang_kubah",
-                bbox=(1.5700, 1.5800, 110.2750, 110.3055),
+            )
         ]
 
         for spec in specs:
