@@ -1,17 +1,17 @@
 {
-  "image": "kuching_central_osm.png",
+  "image": "kuching_matang_kubah.png",
   "projection": "web_mercator",
   "extent": {
-    "xmin": 1.564,
-    "xmax": 1.585,
-    "ymin": 110.265,
-    "ymax": 110.286
+    "xmin": 110.265,
+    "xmax": 110.3055,
+    "ymin": 1.568,
+    "ymax": 1.580
   },
   "bounds": {
     "west": 110.265,
-    "east": 110.286,
-    "south": 1.564,
-    "north": 1.585
+    "east": 110.3055,
+    "south": 1.568,
+    "north": 1.580
   },
   "zoom": 16
 }
