@@ -6,8 +6,9 @@ Nodes:
 5: (110.33130,1.47460)
 6: (110.32980,1.47270)
 7: (110.33533,1.47275)
-8: (110.32860,1.47190)
-9: (110.32740,1.47080)
+8: (110.33293,1.48442)
+9: (110.33056,1.48259)
+10: (110.32828,1.47348)
 
 Landmarks:
 1: Kuching International Airport
@@ -17,35 +18,32 @@ Landmarks:
 5: Shell 7th Mile
 6: 7th Mile Market
 7: Sarawak Forestry Corporation
-8: Kolej Vokasional Kuching
-9: Kuching-Serian Flyover
+8: Farley Kuching
+9: Big Canteen Food Court
+10: PETRONAS Batu 7 Jalan Penrissen
 
 Edges:
 (1,2): 0.0100
-(2,1): 0.0100
 (2,3): 0.0075
-(3,2): 0.0075
 (3,4): 0.0100
-(4,3): 0.0100
 (4,5): 0.0120
-(5,4): 0.0120
 (5,6): 0.0060
-(6,5): 0.0060
 (6,7): 0.0045
-(7,6): 0.0045
-(7,8): 0.0050
-(8,7): 0.0050
-(8,9): 0.0040
-(9,8): 0.0040
+(7,10): 0.0040
+(10,6): 0.0045
+(6,9): 0.0055
+(9,8): 0.0060
+(8,1): 0.0070
+(9,5): 0.0045
 
 Origin:
 1
 
 Destinations:
-5;7
+5;8
 
 Accident Update:
-ACCIDENT_EDGE: (7,8)
+ACCIDENT_EDGE: (7,10)
 SEVERITY: Severe
 MULTIPLIER: 1.8
 
