@@ -645,9 +645,7 @@ def main():
                     ("Electra House", "India Street"),
                     ("India Street", "Electra House"),
                 ],
-                accident_connection=("Padang Merdeka", "Old Courthouse Auditorium"),
-                accident_severity="Moderate",
-                accident_multiplier=1.3,
+                accident_connection=None,
                 zoom=16,
             ),
             OSMSpec(
@@ -696,9 +694,7 @@ def main():
                     ("Bukit Siol Viewpoint", "Padang Merdeka"),
                     ("Padang Merdeka", "Bukit Siol Viewpoint"),
                 ],
-                accident_connection=("Sarawak Museum", "Sarawak Islamic Heritage Museum"),
-                accident_severity="Severe",
-                accident_multiplier=1.5,
+                accident_connection=None,
                 zoom=17,
             ),
             OSMSpec(
@@ -736,9 +732,7 @@ def main():
                     ("Main Bazaar", "Tua Pek Kong Temple"),
                     ("Tua Pek Kong Temple", "Main Bazaar"),
                 ],
-                accident_connection=("Kuching Waterfront", "Tua Pek Kong Temple"),
-                accident_severity="Severe",
-                accident_multiplier=1.8,
+                accident_connection=None,
                 zoom=17,
             ),
             OSMSpec(
@@ -776,9 +770,7 @@ def main():
                     ("Sarawak State Library", "Mini Garden Petra Jaya"),
                     ("Mini Garden Petra Jaya", "Sarawak State Library"),
                 ],
-                accident_connection=("PETRONAS Jalan Semariang", "Normah Medical Centre"),
-                accident_severity="Minor",
-                accident_multiplier=1.4,
+                accident_connection=None,
                 zoom=16,
             ),
             OSMSpec(
@@ -808,9 +800,7 @@ def main():
                     ("Kampung Tabuan Hilir Access", "Pending Market"),
                     ("Pending Market", "Kampung Tabuan Hilir Access"),
                 ],
-                accident_connection=("Jalan Pending Junction", "Pending Port Roundabout"),
-                accident_severity="Moderate",
-                accident_multiplier=1.4,
+                accident_connection=None,
                 zoom=15,
             ),
             OSMSpec(
@@ -844,9 +834,7 @@ def main():
                     ("Farley Kuching", "Kuching International Airport"),
                     ("Big Canteen Food Court", "Kuching International Airport"),
                 ],
-                accident_connection=("Sarawak Forestry Corporation", "PETRONAS Batu 7 Jalan Penrissen"),
-                accident_severity="Severe",
-                accident_multiplier=1.8,
+                accident_connection=None,
                 zoom=15,
             ),
             OSMSpec(
@@ -876,9 +864,7 @@ def main():
                     ("Jalan Stapok Junction", "Kuching City Mall"),
                     ("Kuching City Mall", "Jalan Stapok Junction"),
                 ],
-                accident_connection=("MJC Batu Kawa", "Batu Kawa Bridge"),
-                accident_severity="Minor",
-                accident_multiplier=1.1,
+                accident_connection=None,
                 zoom=16,
             ),
             OSMSpec(
@@ -912,9 +898,7 @@ def main():
                     ("Saradise", "Stutong Forest Park"),
                     ("Stutong Forest Park", "Saradise"),
                 ],
-                accident_connection=("Stutong Market", "Saradise"),
-                accident_severity="Severe",
-                accident_multiplier=1.6,
+                accident_connection=None,
                 zoom=16,
             ),
             OSMSpec(
@@ -955,9 +939,7 @@ def main():
                     ("Taman Sri Matang", "Matang Avenue"),
                     ("Matang Avenue", "Taman Sri Matang"),
                 ],
-                accident_connection=("Emart Matang", "Matang Clinic"),
-                accident_severity="Moderate",
-                accident_multiplier=1.3,
+                accident_connection=None,
                 zoom=16,
             )
         ]

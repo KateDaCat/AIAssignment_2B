@@ -18,13 +18,9 @@ Landmarks:
 
 Edges:
 (1,2): 0.0055
-(2,1): 0.0055
 (2,3): 0.0140
-(3,2): 0.0140
 (3,4): 0.0085
-(4,3): 0.0085
 (4,7): 0.0040
-(7,4): 0.0040
 (4,6): 0.0045
 (6,5): 0.0060
 (5,1): 0.0065
@@ -36,10 +32,3 @@ Origin:
 Destinations:
 4;5
 
-Accident Update:
-ACCIDENT_EDGE: (4,7)
-SEVERITY: Severe
-MULTIPLIER: 1.8
-
-Final Travel Time:
-FINAL_TRAVEL_TIME: 0.0072 (0.0040 * 1.8)

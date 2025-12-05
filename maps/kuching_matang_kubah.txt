@@ -41,10 +41,3 @@ Origin:
 Destinations:
 6;10
 
-Accident Update:
-ACCIDENT_EDGE: (6,7)
-SEVERITY: Moderate
-MULTIPLIER: 1.3
-
-Final Travel Time:
-FINAL_TRAVEL_TIME: 0.0098 (0.0075 * 1.3)

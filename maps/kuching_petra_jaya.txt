@@ -2,58 +2,36 @@ Nodes:
 1: (110.33822,1.57710)
 2: (110.33640,1.57428)
 3: (110.33480,1.57680)
-4: (110.33790,1.57320)
-5: (110.34290,1.57290)
-6: (110.32940,1.57920)
-7: (110.33226,1.58074)
-8: (110.33166,1.57659)
+4: (110.33430,1.57882)
+5: (110.34022,1.57910)
+6: (110.33550,1.57822)
+7: (110.34410,1.57350)
+8: (110.34210,1.57230)
 
 Landmarks:
 1: Sarawak State Library
 2: Masjid Jamek Petra Jaya
 3: Petra Jaya Sports Complex
-4: Mini Garden Petra Jaya
-5: Sarawak State Assembly
-6: Normah Medical Centre
-7: PETRONAS Jalan Semariang
-8: Hawa BBQ Steamboat House
+4: Normah Medical Centre
+5: PETRONAS Jalan Semariang
+6: Mini Garden Petra Jaya
+7: State Assembly Viewpoint
+8: Sarawak State Assembly
 
 Edges:
-(1,2): 0.0100
-(2,1): 0.0100
-(2,3): 0.0080
-(3,2): 0.0080
-(3,8): 0.0055
-(8,3): 0.0055
-(8,7): 0.0045
-(7,8): 0.0045
-(7,6): 0.0040
-(6,7): 0.0040
-(8,6): 0.0050
-(6,8): 0.0050
-(3,4): 0.0060
-(4,3): 0.0060
-(4,5): 0.0050
-(5,4): 0.0050
-(1,4): 0.0055
-(4,1): 0.0055
-(1,6): 0.0120
-(6,1): 0.0120
-(6,5): 0.0100
-(5,6): 0.0100
-(2,4): 0.0045
-(4,2): 0.0045
+(1,2): 0.010000
+(2,3): 0.015000
+(3,4): 0.012000
+(4,5): 0.009000
+(5,6): 0.011000
+(6,7): 0.013000
+(7,8): 0.010500
+(1,6): 0.006000
+(4,6): 0.003500
 
 Origin:
 1
 
 Destinations:
-6;5
+5;8
 
-Accident Update:
-ACCIDENT_EDGE: (7,6)
-SEVERITY: Moderate
-MULTIPLIER: 1.4
-
-Final Travel Time:
-FINAL_TRAVEL_TIME: 0.0056 (0.0040 * 1.4)
