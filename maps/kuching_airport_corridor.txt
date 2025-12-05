@@ -1,55 +1,43 @@
 Nodes:
 1: (110.34750,1.48450)
-2: (110.34560,1.48320)
-3: (110.34330,1.48160)
+2: (110.33996,1.49054)
+3: (110.34177,1.48740)
 4: (110.33780,1.47820)
-5: (110.32980,1.47270)
-6: (110.33533,1.47275)
-7: (110.33293,1.48442)
-8: (110.33056,1.48259)
-9: (110.32828,1.47348)
+5: (110.33533,1.47275)
+6: (110.33293,1.48442)
+7: (110.33056,1.48259)
+8: (110.32828,1.47348)
 
 Landmarks:
 1: Kuching International Airport
-2: Airport Logistics Gate
-3: Airport Road Petronas
-4: Jalan Liu Shan Bang Junction
-5: 7th Mile Market
-6: Sarawak Forestry Corporation
-7: Farley Kuching
-8: Big Canteen Food Court
-9: PETRONAS Batu 7 Jalan Penrissen
+2: Raia Hotel & Convention Centre
+3: Jalan Liu Shan Bang Junction
+4: Sarawak Forestry Corporation
+5: Farley Kuching
+6: Big Canteen Food Court
+7: PETRONAS Batu 7 Jalan Penrissen
+8: Sarawak Forestry Corporation South
 
 Edges:
-(1,2): 0.0100
-(2,1): 0.0100
-(2,3): 0.0075
-(3,2): 0.0075
+(1,2): 0.0055
+(2,3): 0.0140
 (3,4): 0.0100
-(4,3): 0.0100
-(4,5): 0.0085
-(5,4): 0.0085
-(5,6): 0.0045
-(6,5): 0.0045
-(6,9): 0.0035
-(9,6): 0.0035
-(5,9): 0.0040
-(9,5): 0.0040
-(5,8): 0.0055
-(8,5): 0.0055
-(8,7): 0.0040
-(7,8): 0.0040
-(7,1): 0.0060
-(1,7): 0.0060
+(4,7): 0.0065
+(4,8): 0.0040
+(2,5): 0.0120
+(5,6): 0.0060
+(6,1): 0.0070
+(6,7): 0.0045
+(7,4): 0.0035
 
 Origin:
 1
 
 Destinations:
-5;6
+5;4
 
 Accident Update:
-ACCIDENT_EDGE: (6,9)
+ACCIDENT_EDGE: (4,7)
 SEVERITY: Severe
 MULTIPLIER: 1.8
 
