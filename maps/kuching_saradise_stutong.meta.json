@@ -1,0 +1,17 @@
+{
+  "image": "kuching_saradise_stutong.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12284347.689767245,
+    "xmax": 12286182.17844609,
+    "ymin": 168161.46222738802,
+    "ymax": 169384.45467995032
+  },
+  "bounds": {
+    "west": 110.3534224,
+    "east": 110.3663375,
+    "south": 1.5120465,
+    "north": 1.5212903
+  },
+  "zoom": 16
+}

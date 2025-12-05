@@ -1,0 +1,17 @@
+{
+  "image": "kuching_petra_jaya.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12281290.208635839,
+    "xmax": 12283736.193540964,
+    "ymin": 174887.92071648323,
+    "ymax": 176110.9131690465
+  },
+  "bounds": {
+    "west": 110.3281604,
+    "east": 110.3440805,
+    "south": 1.5724561,
+    "north": 1.5806499
+  },
+  "zoom": 16
+}

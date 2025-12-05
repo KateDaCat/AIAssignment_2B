@@ -1,0 +1,17 @@
+{
+  "image": "kuching_batu_kawa.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12278844.223730713,
+    "xmax": 12281290.208635839,
+    "ymin": 167549.96600110628,
+    "ymax": 168772.95845366802
+  },
+  "bounds": {
+    "west": 110.3051414,
+    "east": 110.3199471,
+    "south": 1.5061095,
+    "north": 1.5112262
+  },
+  "zoom": 16
+}

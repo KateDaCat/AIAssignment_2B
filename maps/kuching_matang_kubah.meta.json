@@ -1,0 +1,17 @@
+{
+  "image": "kuching_matang_kubah.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12274563.750146743,
+    "xmax": 12279455.719956994,
+    "ymin": 174887.92071648323,
+    "ymax": 176110.9131690465
+  },
+  "bounds": {
+    "west": 110.2664398,
+    "east": 110.3046906,
+    "south": 1.5717002,
+    "north": 1.5778434
+  },
+  "zoom": 16
+}

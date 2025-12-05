@@ -1,0 +1,32 @@
+Nodes:
+1: (110.389852,1.558752)
+2: (110.392145,1.559804)
+3: (110.392882,1.560042)
+4: (110.392414,1.561674)
+5: (110.390725,1.562065)
+6: (110.388071,1.560491)
+
+Landmarks:
+1: Pending Industrial Gate
+2: Jalan Pending Junction
+3: Pending Port Roundabout
+4: Senari Terminal
+5: Pending Market
+6: Kampung Tabuan Hilir Access
+
+Edges:
+(1,2): 0.005574
+(2,1): 0.005574
+(2,3): 0.001672
+(3,2): 0.001672
+(3,4): 0.008849
+(4,3): 0.008849
+(5,2): 0.012986
+(6,1): 0.009807
+
+Origin:
+1
+
+Destinations:
+4;5
+

@@ -1,0 +1,17 @@
+{
+  "image": "kuching_pending_industrial.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12287405.170898652,
+    "xmax": 12289851.155803777,
+    "ymin": 172441.93581135606,
+    "ymax": 174887.92071648323
+  },
+  "bounds": {
+    "west": 110.3880022,
+    "east": 110.392882,
+    "south": 1.5587525,
+    "north": 1.562219
+  },
+  "zoom": 15
+}

@@ -1,0 +1,17 @@
+{
+  "image": "kuching_padungan_waterfront.png",
+  "projection": "web_mercator",
+  "extent": {
+    "xmin": 12283124.697314681,
+    "xmax": 12284041.941654105,
+    "ymin": 173053.43203763917,
+    "ymax": 173664.92826392024
+  },
+  "bounds": {
+    "west": 110.3430214,
+    "east": 110.3475122,
+    "south": 1.5559933,
+    "north": 1.5581955
+  },
+  "zoom": 17
+}

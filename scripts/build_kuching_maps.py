@@ -289,9 +289,9 @@ class OSMSpec:
     origin_name: str
     destination_names: List[str]
     connections: List[Tuple[str, str]]
-    accident_connection: Tuple[str, str]
-    accident_severity: str
-    accident_multiplier: float
+    accident_connection: Tuple[str, str] | None = None
+    accident_severity: str = ""
+    accident_multiplier: float = 1.0
     zoom: int = 16
 
 
@@ -529,11 +529,18 @@ def build_osm_map(base_graph, spec: OSMSpec, dest: Path) -> None:
     origin = resolve_newid(spec.origin_name)
     destinations = [resolve_newid(name) for name in spec.destination_names]
 
-    accident_edge = tuple(resolve_newid(name) for name in spec.accident_connection)
-    accident_base = edges.get(accident_edge)
-    if accident_base is None:
-        (u, v), accident_base = next(iter(edges.items()))
-        accident_edge = (u, v)
+    accident_edge: Tuple[int, int] | None = None
+    accident_base: float | None = None
+    if spec.accident_connection:
+        try:
+            accident_edge = tuple(resolve_newid(name) for name in spec.accident_connection)  # type: ignore[arg-type]
+        except ValueError:
+            accident_edge = None
+        else:
+            accident_base = edges.get(accident_edge)
+            if accident_base is None and edges:
+                (u, v), accident_base = next(iter(edges.items()))
+                accident_edge = (u, v)
 
     write_ics(
         dest,
@@ -645,9 +652,7 @@ def main():
                     ("Electra House", "India Street"),
                     ("India Street", "Electra House"),
                 ],
-                accident_connection=("Padang Merdeka", "Old Courthouse Auditorium"),
-                accident_severity="Moderate",
-                accident_multiplier=1.3,
+                accident_connection=None,
                 zoom=16,
             ),
             OSMSpec(
@@ -696,11 +701,254 @@ def main():
                     ("Bukit Siol Viewpoint", "Padang Merdeka"),
                     ("Padang Merdeka", "Bukit Siol Viewpoint"),
                 ],
-                accident_connection=("Sarawak Museum", "Sarawak Islamic Heritage Museum"),
-                accident_severity="Severe",
-                accident_multiplier=1.5,
+                accident_connection=None,
                 zoom=17,
             ),
+            OSMSpec(
+                name="kuching_padungan_waterfront",
+                bbox=(1.5550, 1.5585, 110.3420, 110.3485),
+                landmarks={
+                    "Kuching Waterfront": (1.55749, 110.34428),
+                    "Main Bazaar": (1.55701, 110.34520),
+                    "Carpenter Street": (1.55655, 110.34428),
+                    "Plaza Merdeka": (1.55690, 110.34360),
+                    "India Street": (1.55680, 110.34400),
+                    "Tua Pek Kong Temple": (1.55712, 110.34483),
+                    "Darul Hana Bridge": (1.55728, 110.34752),
+                    "Electra House": (1.55670, 110.34470),
+                },
+                origin_name="Kuching Waterfront",
+                destination_names=["Darul Hana Bridge", "Main Bazaar"],
+                connections=[
+                    ("Kuching Waterfront", "Main Bazaar"),
+                    ("Main Bazaar", "Kuching Waterfront"),
+                    ("Main Bazaar", "Carpenter Street"),
+                    ("Carpenter Street", "Main Bazaar"),
+                    ("Carpenter Street", "Plaza Merdeka"),
+                    ("Plaza Merdeka", "Carpenter Street"),
+                    ("Plaza Merdeka", "India Street"),
+                    ("India Street", "Plaza Merdeka"),
+                    ("India Street", "Tua Pek Kong Temple"),
+                    ("Tua Pek Kong Temple", "India Street"),
+                    ("Tua Pek Kong Temple", "Darul Hana Bridge"),
+                    ("Darul Hana Bridge", "Tua Pek Kong Temple"),
+                    ("Kuching Waterfront", "Electra House"),
+                    ("Electra House", "Kuching Waterfront"),
+                    ("Electra House", "India Street"),
+                    ("India Street", "Electra House"),
+                    ("Main Bazaar", "Tua Pek Kong Temple"),
+                    ("Tua Pek Kong Temple", "Main Bazaar"),
+                ],
+                accident_connection=None,
+                zoom=17,
+            ),
+            OSMSpec(
+                name="kuching_petra_jaya",
+                bbox=(1.5710, 1.5820, 110.3280, 110.3445),
+                landmarks={
+                    "Sarawak State Library": (1.57710, 110.33822),
+                    "Masjid Jamek Petra Jaya": (1.57428, 110.33640),
+                    "Petra Jaya Sports Complex": (1.57680, 110.33480),
+                    "Mini Garden Petra Jaya": (1.57320, 110.33790),
+                    "Sarawak State Assembly": (1.57290, 110.34290),
+                    "Normah Medical Centre": (1.57920, 110.32940),
+                    "PETRONAS Jalan Semariang": (1.58074, 110.33226),
+                    "Hawa BBQ Steamboat House": (1.57659, 110.33166),
+                },
+                origin_name="Sarawak State Library",
+                destination_names=["Normah Medical Centre", "Sarawak State Assembly"],
+                connections=[
+                    ("Sarawak State Library", "Masjid Jamek Petra Jaya"),
+                    ("Masjid Jamek Petra Jaya", "Sarawak State Library"),
+                    ("Masjid Jamek Petra Jaya", "Petra Jaya Sports Complex"),
+                    ("Petra Jaya Sports Complex", "Masjid Jamek Petra Jaya"),
+                    ("Petra Jaya Sports Complex", "Hawa BBQ Steamboat House"),
+                    ("Hawa BBQ Steamboat House", "Petra Jaya Sports Complex"),
+                    ("Hawa BBQ Steamboat House", "PETRONAS Jalan Semariang"),
+                    ("PETRONAS Jalan Semariang", "Hawa BBQ Steamboat House"),
+                    ("PETRONAS Jalan Semariang", "Normah Medical Centre"),
+                    ("Normah Medical Centre", "PETRONAS Jalan Semariang"),
+                    ("Hawa BBQ Steamboat House", "Normah Medical Centre"),
+                    ("Normah Medical Centre", "Hawa BBQ Steamboat House"),
+                    ("Petra Jaya Sports Complex", "Mini Garden Petra Jaya"),
+                    ("Mini Garden Petra Jaya", "Petra Jaya Sports Complex"),
+                    ("Mini Garden Petra Jaya", "Sarawak State Assembly"),
+                    ("Sarawak State Assembly", "Mini Garden Petra Jaya"),
+                    ("Sarawak State Library", "Mini Garden Petra Jaya"),
+                    ("Mini Garden Petra Jaya", "Sarawak State Library"),
+                ],
+                accident_connection=None,
+                zoom=16,
+            ),
+            OSMSpec(
+                name="kuching_pending_industrial",
+                bbox=(1.5580, 1.5630, 110.3870, 110.3965),
+                landmarks={
+                    "Pending Industrial Gate": (1.55880, 110.38980),
+                    "Jalan Pending Junction": (1.55980, 110.39200),
+                    "Pending Port Roundabout": (1.56100, 110.39380),
+                    "Senari Terminal": (1.56280, 110.39550),
+                    "Pending Market": (1.56200, 110.39050),
+                    "Kampung Tabuan Hilir Access": (1.56060, 110.38800),
+                },
+                origin_name="Pending Industrial Gate",
+                destination_names=["Senari Terminal", "Pending Market"],
+                connections=[
+                    ("Pending Industrial Gate", "Jalan Pending Junction"),
+                    ("Jalan Pending Junction", "Pending Industrial Gate"),
+                    ("Jalan Pending Junction", "Pending Port Roundabout"),
+                    ("Pending Port Roundabout", "Jalan Pending Junction"),
+                    ("Pending Port Roundabout", "Senari Terminal"),
+                    ("Senari Terminal", "Pending Port Roundabout"),
+                    ("Jalan Pending Junction", "Pending Market"),
+                    ("Pending Market", "Jalan Pending Junction"),
+                    ("Pending Industrial Gate", "Kampung Tabuan Hilir Access"),
+                    ("Kampung Tabuan Hilir Access", "Pending Industrial Gate"),
+                    ("Kampung Tabuan Hilir Access", "Pending Market"),
+                    ("Pending Market", "Kampung Tabuan Hilir Access"),
+                ],
+                accident_connection=None,
+                zoom=15,
+            ),
+            OSMSpec(
+                name="kuching_airport_corridor",
+                bbox=(1.4680, 1.4935, 110.3240, 110.3500),
+                landmarks={
+                    "Kuching International Airport": (1.4873996468695103, 110.34177081614432),
+                    "Raia Hotel & Convention Centre": (1.4905402301555795, 110.33995920924441),
+                    "Jalan Liu Shan Bang Junction": (1.47820, 110.33780),
+                    "Sarawak Forestry Corporation": (1.4727491562706154, 110.33532680720366),
+                    "Farley Kuching": (1.484422037459582, 110.3329256689021),
+                    "Big Canteen Food Court": (1.4825888651134826, 110.33056468161541),
+                    "PETRONAS Batu 7 Jalan Penrissen": (1.4734832305104373, 110.32827718683153),
+                },
+                origin_name="Kuching International Airport",
+                destination_names=[
+                    "Sarawak Forestry Corporation",
+                    "Farley Kuching",
+                ],
+                connections=[
+                    ("Kuching International Airport", "Raia Hotel & Convention Centre"),
+                    ("Raia Hotel & Convention Centre", "Kuching International Airport"),
+                    ("Raia Hotel & Convention Centre", "Jalan Liu Shan Bang Junction"),
+                    ("Jalan Liu Shan Bang Junction", "Raia Hotel & Convention Centre"),
+                    ("Jalan Liu Shan Bang Junction", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Jalan Liu Shan Bang Junction"),
+                    ("Sarawak Forestry Corporation", "PETRONAS Batu 7 Jalan Penrissen"),
+                    ("PETRONAS Batu 7 Jalan Penrissen", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Big Canteen Food Court"),
+                    ("Big Canteen Food Court", "Farley Kuching"),
+                    ("Farley Kuching", "Kuching International Airport"),
+                    ("Big Canteen Food Court", "Kuching International Airport"),
+                ],
+                accident_connection=None,
+                zoom=15,
+            ),
+            OSMSpec(
+                name="kuching_batu_kawa",
+                bbox=(1.5040, 1.5125, 110.3040, 110.3210),
+                landmarks={
+                    "MJC Batu Kawa": (1.50820, 110.31090),
+                    "Batu Kawa Old Town": (1.50560, 110.31170),
+                    "Batu Kawa Bridge": (1.50640, 110.30760),
+                    "Jalan Stapok Junction": (1.51030, 110.30470),
+                    "Moyan Square": (1.50810, 110.31690),
+                    "Kuching City Mall": (1.51050, 110.32010),
+                },
+                origin_name="MJC Batu Kawa",
+                destination_names=["Kuching City Mall", "Batu Kawa Bridge"],
+                connections=[
+                    ("MJC Batu Kawa", "Batu Kawa Old Town"),
+                    ("Batu Kawa Old Town", "MJC Batu Kawa"),
+                    ("Batu Kawa Old Town", "Batu Kawa Bridge"),
+                    ("Batu Kawa Bridge", "Batu Kawa Old Town"),
+                    ("Batu Kawa Bridge", "Jalan Stapok Junction"),
+                    ("Jalan Stapok Junction", "Batu Kawa Bridge"),
+                    ("MJC Batu Kawa", "Moyan Square"),
+                    ("Moyan Square", "MJC Batu Kawa"),
+                    ("Moyan Square", "Kuching City Mall"),
+                    ("Kuching City Mall", "Moyan Square"),
+                    ("Jalan Stapok Junction", "Kuching City Mall"),
+                    ("Kuching City Mall", "Jalan Stapok Junction"),
+                ],
+                accident_connection=None,
+                zoom=16,
+            ),
+            OSMSpec(
+                name="kuching_saradise_stutong",
+                bbox=(1.5110, 1.5215, 110.3530, 110.3665),
+                landmarks={
+                    "Vivacity Megamall": (1.52020, 110.35370),
+                    "CityOne Link": (1.51890, 110.35520),
+                    "Saradise": (1.51280, 110.35910),
+                    "Stutong Market": (1.51570, 110.35850),
+                    "Lorong 7B Stutong": (1.51620, 110.36090),
+                    "Stutong Forest Park": (1.51210, 110.36340),
+                    "KPJ Kuching Specialist Hospital": (1.51500, 110.36610),
+                    "Taman Sri Stutong": (1.51830, 110.36300),
+                },
+                origin_name="Vivacity Megamall",
+                destination_names=["Saradise", "KPJ Kuching Specialist Hospital"],
+                connections=[
+                    ("Vivacity Megamall", "CityOne Link"),
+                    ("CityOne Link", "Vivacity Megamall"),
+                    ("CityOne Link", "Taman Sri Stutong"),
+                    ("Taman Sri Stutong", "CityOne Link"),
+                    ("Taman Sri Stutong", "KPJ Kuching Specialist Hospital"),
+                    ("KPJ Kuching Specialist Hospital", "Taman Sri Stutong"),
+                    ("Vivacity Megamall", "Stutong Market"),
+                    ("Stutong Market", "Vivacity Megamall"),
+                    ("Stutong Market", "Lorong 7B Stutong"),
+                    ("Lorong 7B Stutong", "Stutong Market"),
+                    ("Lorong 7B Stutong", "Saradise"),
+                    ("Saradise", "Lorong 7B Stutong"),
+                    ("Saradise", "Stutong Forest Park"),
+                    ("Stutong Forest Park", "Saradise"),
+                ],
+                accident_connection=None,
+                zoom=16,
+            ),
+            OSMSpec(
+                name="kuching_matang_kubah",
+                bbox=(1.5680, 1.5800, 110.2650, 110.3055),
+                landmarks={
+                    "Kubah National Park Entrance": (1.57424, 110.26633),
+                    "Matang Wildlife Centre": (1.57205, 110.26810),
+                    "Jalan Matang West": (1.57320, 110.27290),
+                    "Taman Sri Matang": (1.57395, 110.27650),
+                    "Jalan Matang Mall": (1.57395, 110.27810),
+                    "Emart Matang": (1.57200, 110.30321),
+                    "Matang Clinic": (1.57429, 110.29714),
+                    "Matang Jaya Commercial Centre": (1.57530, 110.29398),
+                    "Matang Avenue": (1.57619, 110.28040),
+                    "Matang Hospital": (1.57665, 110.28341),
+                },
+                origin_name="Matang Jaya Commercial Centre",
+                destination_names=["Emart Matang", "Matang Hospital"],
+                connections=[
+                    ("Kubah National Park Entrance", "Matang Wildlife Centre"),
+                    ("Matang Wildlife Centre", "Kubah National Park Entrance"),
+                    ("Matang Wildlife Centre", "Jalan Matang West"),
+                    ("Jalan Matang West", "Matang Wildlife Centre"),
+                    ("Jalan Matang West", "Taman Sri Matang"),
+                    ("Taman Sri Matang", "Jalan Matang West"),
+                    ("Taman Sri Matang", "Jalan Matang Mall"),
+                    ("Jalan Matang Mall", "Taman Sri Matang"),
+                    ("Jalan Matang Mall", "Emart Matang"),
+                    ("Emart Matang", "Jalan Matang Mall"),
+                    ("Emart Matang", "Matang Clinic"),
+                    ("Matang Clinic", "Matang Jaya Commercial Centre"),
+                    ("Matang Jaya Commercial Centre", "Matang Hospital"),
+                    ("Matang Hospital", "Matang Avenue"),
+                    ("Matang Avenue", "Matang Hospital"),
+                    ("Emart Matang", "Matang Avenue"),
+                    ("Matang Avenue", "Emart Matang"),
+                    ("Taman Sri Matang", "Matang Avenue"),
+                    ("Matang Avenue", "Taman Sri Matang"),
+                ],
+                accident_connection=None,
+                zoom=16,
+            )
         ]
 
         for spec in specs:
@@ -710,3 +958,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+ 
