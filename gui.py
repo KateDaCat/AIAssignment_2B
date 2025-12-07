@@ -159,7 +159,7 @@ class ICS_GUI:
         right_outer.pack(side="right", fill="y")
 
         # Canvas used for scrolling
-        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=480)
+        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=480, highlightthickness=0)
         right_canvas.pack(side="left", fill="both", expand=True)
 
         # Scrollbar
@@ -167,10 +167,6 @@ class ICS_GUI:
         scrollbar.pack(side="right", fill="y")
 
         right_canvas.configure(yscrollcommand=scrollbar.set)
-        right_canvas.bind(
-            "<Configure>",
-            lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all"))
-        )
 
         def _on_mousewheel(event):
             if event.delta:
@@ -180,7 +176,13 @@ class ICS_GUI:
 
         # Actual content frame placed INSIDE the canvas
         right_container = tk.Frame(right_canvas, bg="#f5f5f5")
-        right_canvas.create_window((0, 0), window=right_container, anchor="n")
+        container_window = right_canvas.create_window((0, 0), window=right_container, anchor="nw")
+
+        def _sync_scrollregion(event):
+            right_canvas.configure(scrollregion=right_canvas.bbox("all"))
+            right_canvas.itemconfig(container_window, width=right_canvas.winfo_width())
+
+        right_container.bind("<Configure>", _sync_scrollregion)
 
         right = tk.Frame(right_container, bg="#f5f5f5", padx=30, pady=30)
         right.pack(expand=True)
