@@ -78,6 +78,7 @@ class ICS_GUI:
         self.model_options = ["CNN", "Transfer Learning (MobileNetV2)", "Random Forest"]
         self.selected_model_var = tk.StringVar(value=self.model_options[0])
         self.severity_choices = list(self.SEVERITY_LEVELS.keys())
+        self.routing_mode_var = tk.StringVar(value="Developer")
 
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
@@ -300,39 +301,50 @@ class ICS_GUI:
         selections = tk.Frame(routing_wrapper, bg="#f5f5f5")
         selections.pack(fill="x")
 
+        tk.Label(selections, text="Mode:", anchor="w", bg="#f5f5f5").grid(row=0, column=0, sticky="w", pady=(4, 0))
+        mode_menu = tk.OptionMenu(
+            selections,
+            self.routing_mode_var,
+            "Developer",
+            "User",
+            command=lambda _value: self.on_routing_mode_option(),
+        )
+        mode_menu.grid(row=0, column=1, sticky="ew", pady=(4, 0))
+
         map_labels = [entry["label"] for entry in self.map_entries]
         self.map_menu = make_row(
             selections,
             "Map:",
             lambda parent: tk.OptionMenu(parent, self.map_var, *map_labels, command=self.on_map_change),
-            0,
+            1,
         )
 
         tk.Label(selections, text="Origin:", anchor="w",
-                bg="#f5f5f5").grid(row=1, column=0, sticky="w", pady=(8, 0))
+                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
         origin_names = self.landmark_names() or ["(none)"]
         self.origin_var = tk.StringVar(value="-- choose origin --" if origin_names else "(none)")
         self.origin_menu = tk.OptionMenu(selections, self.origin_var, "-- choose origin --", *origin_names)
-        self.origin_menu.grid(row=1, column=1, sticky="ew", pady=(8, 0))
+        self.origin_menu.grid(row=2, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Destination:", anchor="w",
-                bg="#f5f5f5").grid(row=2, column=0, sticky="w", pady=(8, 0))
+                bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
         self.destination_var = tk.StringVar(value="-- choose destination --" if origin_names else "(none)")
         self.destination_menu = tk.OptionMenu(selections, self.destination_var, "-- choose destination --", *origin_names)
-        self.destination_menu.grid(row=2, column=1, sticky="ew", pady=(8, 0))
+        self.destination_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
 
-        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.algorithm_var = tk.StringVar(value="CUS1")
         algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
         self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
-        self.algorithm_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
+        self.algorithm_menu.grid(row=4, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Number of routes (k):", anchor="w",
-                bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
+                bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(8, 0))
         self.k_var = tk.StringVar(value="3")
-        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=4, column=1, sticky="w")
+        self.k_spinbox = tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5)
+        self.k_spinbox.grid(row=5, column=1, sticky="w")
         tk.Label(selections, text="Display route:", anchor="w",
-                bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(4, 0))
+                bg="#f5f5f5").grid(row=6, column=0, sticky="w", pady=(4, 0))
         self.route_choice_var = tk.StringVar(value="Route 1")
         self.route_choice_menu = tk.OptionMenu(
             selections,
@@ -340,7 +352,7 @@ class ICS_GUI:
             "Route 1",
             command=self.on_route_option_selected,
         )
-        self.route_choice_menu.grid(row=5, column=1, columnspan=3, sticky="ew", pady=(4, 0))
+        self.route_choice_menu.grid(row=6, column=1, columnspan=3, sticky="ew", pady=(4, 0))
         self.route_choice_menu.config(state="disabled")
 
         selections.grid_columnconfigure(1, weight=1)
@@ -373,6 +385,21 @@ class ICS_GUI:
         self.route_output = tk.Text(output_frame, height=10, width=40, yscrollcommand=scroll.set, wrap="word")
         self.route_output.pack(side="left", fill="both", expand=True)
         scroll.config(command=self.route_output.yview)
+
+        self.on_routing_mode_option()
+
+    def on_routing_mode_option(self):
+        mode = self.routing_mode_var.get()
+        if hasattr(self, "k_spinbox") and self.k_spinbox is not None:
+            if mode == "User":
+                self.k_var.set("1")
+                self.k_spinbox.config(state="disabled")
+            else:
+                self.k_spinbox.config(state="normal")
+        self.mark_routes_stale(f"Routing mode set to {mode}.")
+
+    def is_user_mode(self):
+        return self.routing_mode_var.get().lower().startswith("user")
 
 
     # ---------------------------
@@ -1155,13 +1182,20 @@ class ICS_GUI:
             messagebox.showerror("Invalid selection", str(exc))
             return
 
+        user_mode = self.is_user_mode()
         try:
-            k = max(1, min(5, int(self.k_var.get())))
+            requested_k = max(1, min(5, int(self.k_var.get())))
         except ValueError:
+            requested_k = 1
+        if user_mode:
             k = 1
+            if self.k_var.get() != "1":
+                self.k_var.set("1")
+        else:
+            k = requested_k
 
         method = self.algorithm_var.get().upper()
-        if method != "CUS1" and k > 1:
+        if not user_mode and method != "CUS1" and k > 1:
             messagebox.showinfo(
                 "Top-k not available",
                 "Multiple routes are currently supported only for CUS1. "
@@ -1211,31 +1245,49 @@ class ICS_GUI:
         self.update_route_selector()
         self.render_active_route()
 
-        lines = [
-            f"Origin: {self.node_label(origin_id)}",
-            f"Destination: {self.node_label(destination_id)}",
-            f"Accident: {self.accident.get('edge')} ({self.accident.get('severity')})",
-            "",
-            "Routes:",
-        ]
+        if user_mode:
+            best_route = self.current_routes[0]
+            path_nodes = " -> ".join(self.node_label(n) for n in best_route["path"])
+            lines = [
+                f"Origin: {self.node_label(origin_id)}",
+                f"Destination: {self.node_label(destination_id)}",
+                "",
+                f"Recommended route ({best_route['cost']:.4f} h):",
+                path_nodes,
+            ]
+            if self.user_accidents:
+                lines.append("")
+                lines.append("Delay factors applied:")
+                for (u, v), info in sorted(self.user_accidents.items()):
+                    lines.append(
+                        f"- {self.node_label(u)} → {self.node_label(v)}: {info['severity']} × {info['multiplier']:.2f}"
+                    )
+        else:
+            lines = [
+                f"Origin: {self.node_label(origin_id)}",
+                f"Destination: {self.node_label(destination_id)}",
+                f"Accident: {self.accident.get('edge')} ({self.accident.get('severity')})",
+                "",
+                "Routes:",
+            ]
 
-        for idx, info in enumerate(self.current_routes, start=1):
-            path_nodes = " -> ".join(self.node_label(n) for n in info["path"])
-            lines.append(f"{idx}) {path_nodes}")
-            lines.append(f"    Travel time: {info['cost']:.4f}")
+            for idx, info in enumerate(self.current_routes, start=1):
+                path_nodes = " -> ".join(self.node_label(n) for n in info["path"])
+                lines.append(f"{idx}) {path_nodes}")
+                lines.append(f"    Travel time: {info['cost']:.4f}")
 
-        lines.append("")
-        lines.append(f"Nodes expanded: {nodes_expanded}")
-        if self.user_accidents:
             lines.append("")
-            lines.append("Applied accident slowdowns:")
-            for (u, v), info in sorted(self.user_accidents.items()):
-                lines.append(
-                    f"- {self.node_label(u)} -> {self.node_label(v)}: {info['severity']} × {info['multiplier']:.2f}"
-                )
-                formula_text = info.get("formula")
-                if formula_text:
-                    lines.append(f"  Formula: {formula_text}")
+            lines.append(f"Nodes expanded: {nodes_expanded}")
+            if self.user_accidents:
+                lines.append("")
+                lines.append("Applied accident slowdowns:")
+                for (u, v), info in sorted(self.user_accidents.items()):
+                    lines.append(
+                        f"- {self.node_label(u)} -> {self.node_label(v)}: {info['severity']} × {info['multiplier']:.2f}"
+                    )
+                    formula_text = info.get("formula")
+                    if formula_text:
+                        lines.append(f"  Formula: {formula_text}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
         self.mark_routes_fresh()
