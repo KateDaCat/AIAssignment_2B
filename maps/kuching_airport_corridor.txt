@@ -6,6 +6,9 @@ Nodes:
 5: (110.332672,1.484637)
 6: (110.330599,1.482878)
 7: (110.328592,1.473442)
+8: (110.330861,1.475816)
+9: (110.332109,1.482143)
+10: (110.329863,1.472928)
 
 Landmarks:
 1: Kuching International Airport
@@ -15,6 +18,9 @@ Landmarks:
 5: Farley Kuching
 6: Big Canteen Food Court
 7: PETRONAS Batu 7 Jalan Penrissen
+8: Public Bank
+9: Affin Bank
+10: Sacred Heart Catholic Church
 
 Edges:
 (1,2): 0.014214
