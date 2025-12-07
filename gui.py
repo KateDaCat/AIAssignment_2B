@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from datetime import datetime
 
 import copy
 import json
@@ -51,12 +52,6 @@ class ICS_GUI:
             )
             raise SystemExit(1)
 
-        # ML prediction placeholders
-        self.uploaded_img = None
-        self.cnn_model = None
-        self.model2 = None
-        self.current_severity = None
-
         self.graph = {}
         self.graph_original = {}
         self.origin_default = None
@@ -72,14 +67,17 @@ class ICS_GUI:
         self.route_paths = []
         self.current_meta_zoom = 15
         self.edge_polylines = {}
-        self.routes_stale = False
+        self.routes_stale = True
+        self.routing_status_var = tk.StringVar(value="Routes not yet computed.")
         self.animation_after_id = None
         self.animation_path_handle = None
         self.animation_points = []
         self.animation_step = 0
+        self.base_edge_handles = []
 
         self.model_options = ["CNN", "Transfer Learning (MobileNetV2)", "Random Forest"]
         self.selected_model_var = tk.StringVar(value=self.model_options[0])
+        self.severity_choices = list(self.SEVERITY_LEVELS.keys())
 
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
@@ -115,6 +113,11 @@ class ICS_GUI:
         self.no_accidents_label = None
         self.add_accident_button = None
         self.model_run_summary_var = tk.StringVar(value="No accident predictions yet.")
+        self.cnn_label = None
+        self.model2_label = None
+        self.final_label = None
+        self.run_routing_button = None
+        self._suspend_entry_sync = False
 
         if self.current_map_entry.get("map_path"):
             self.load_map_data(self.current_map_entry)
@@ -223,6 +226,34 @@ class ICS_GUI:
         )
         self.model_summary_label.pack(fill="x", pady=(0, 4))
 
+        self.cnn_label = tk.Label(
+            incidents,
+            text="Primary model output: -",
+            anchor="w",
+            bg="#f5f5f5",
+            fg="#222",
+        )
+        self.cnn_label.pack(fill="x")
+
+        self.model2_label = tk.Label(
+            incidents,
+            text="Notes: -",
+            anchor="w",
+            bg="#f5f5f5",
+            fg="#555",
+        )
+        self.model2_label.pack(fill="x", pady=(0, 2))
+
+        self.final_label = tk.Label(
+            incidents,
+            text="Applied severity levels: (none)",
+            anchor="w",
+            bg="#f5f5f5",
+            fg="darkred",
+            font=("Arial", 11, "bold"),
+        )
+        self.final_label.pack(fill="x", pady=(0, 6))
+
         tk.Label(
             incidents,
             text="Add up to three accident reports. Each report selects a road segment and image.",
@@ -314,9 +345,21 @@ class ICS_GUI:
 
         selections.grid_columnconfigure(1, weight=1)
 
-        tk.Button(right, text="Run Routing",
-                command=self.run_routing,
-                width=25).pack(pady=10)
+        self.run_routing_button = tk.Button(
+            right,
+            text="Run Routing",
+            command=self.run_routing,
+            width=25,
+        )
+        self.run_routing_button.pack(pady=10)
+        tk.Label(
+            right,
+            textvariable=self.routing_status_var,
+            fg="#8a2d0c",
+            bg="#f5f5f5",
+            wraplength=360,
+            justify="left",
+        ).pack(pady=(0, 10), padx=10, fill="x")
 
         tk.Label(right, textvariable=self.map_label_var, fg="#555", bg="#f5f5f5").pack()
 
@@ -351,17 +394,51 @@ class ICS_GUI:
             selected_model, ("Moderate", "Default response")
         )
 
-        severities = ["Minor", "Moderate", "Severe"]
-        for idx, entry in enumerate(active_entries):
-            severity = severities[idx % len(severities)]
-            entry["severity_var"].set(severity)
-            entry["note_var"].set(note)
-            entry["status_var"].set(note)
+        applied = []
+        last_note = ""
+        self._suspend_entry_sync = True
+        try:
+            for entry in active_entries:
+                try:
+                    result = self._predict_severity(entry["image_path"], selected_model)
+                except Exception as exc:
+                    messagebox.showerror("Prediction error", f"Failed to process image:\n{exc}")
+                    return
+                severity = result["severity"]
+                multiplier = result["multiplier"]
+                note_text = result["note"]
+                entry["multiplier_dirty"] = False
+                entry["severity_var"].set(severity)
+                self._set_entry_multiplier(entry, multiplier, reset_dirty=True)
+                entry["note_var"].set(note_text)
+                entry["status_var"].set(note_text)
+                applied.append(severity)
+                last_note = note_text
+        finally:
+            self._suspend_entry_sync = False
 
+        if applied:
+            self.cnn_label.config(text=f"{selected_model}: processed {len(applied)} accident image(s).")
+            self.model2_label.config(text=f"Notes: {last_note or 'Model update applied.'}")
+            self.final_label.config(text=f"Applied severity levels: {', '.join(applied)}")
         self.sync_accidents_to_graph()
         self.model_run_summary_var.set(
             f"{selected_model} processed {len(active_entries)} accident(s)."
         )
+        self.mark_routes_stale("New severity predictions applied.")
+
+    def _predict_severity(self, image_path, model_name):
+        placeholder_outputs = {
+            "CNN": ("Minor", "CNN logits indicate low severity"),
+            "Transfer Learning (MobileNetV2)": ("Moderate", "MobileNetV2 features suggest caution"),
+            "Random Forest": ("Severe", "Ensemble votes for severe incident"),
+        }
+        severity, note = placeholder_outputs.get(
+            model_name,
+            ("Moderate", "Default response"),
+        )
+        multiplier = self.SEVERITY_LEVELS.get(severity, 1.0)
+        return {"severity": severity, "multiplier": multiplier, "note": note}
 
     # ---------------------------
     # Accident Entry Management
@@ -418,10 +495,35 @@ class ICS_GUI:
         image_label = tk.Label(upload_row, text="No image", bg="#eeeeee", width=25, height=5)
         image_label.pack(side="left", padx=10)
 
-        severity_label = tk.Label(card, text="Severity: Pending", bg="white", fg="darkred", anchor="w")
-        severity_label.pack(fill="x", pady=(0, 2))
+        severity_row = tk.Frame(card, bg="white")
+        severity_row.pack(fill="x", pady=(0, 4))
+        tk.Label(severity_row, text="Severity:", bg="white").grid(row=0, column=0, sticky="w")
+        severity_options = ["Pending"] + self.severity_choices
+        severity_menu = tk.OptionMenu(severity_row, severity_var, severity_var.get(), *severity_options)
+        severity_menu.grid(row=0, column=1, sticky="ew", padx=(6, 8))
+        severity_row.grid_columnconfigure(1, weight=1)
 
-        status_label = tk.Label(card, textvariable=status_var, anchor="w", bg="white", fg="#555")
+        multiplier_var = tk.DoubleVar(value=1.00)
+        tk.Label(severity_row, text="Multiplier:", bg="white").grid(row=0, column=2, sticky="w")
+        multiplier_spin = tk.Spinbox(
+            severity_row,
+            from_=1.00,
+            to=5.00,
+            increment=0.05,
+            width=6,
+            textvariable=multiplier_var,
+            format="%.2f",
+        )
+        multiplier_spin.grid(row=0, column=3, sticky="w", padx=(6, 0))
+
+        severity_label = tk.Label(card, text="Severity: Pending", bg="white", fg="darkred", anchor="w")
+        severity_label.pack(fill="x")
+
+        formula_var = tk.StringVar(value="Formula: time × Pending × 1.00")
+        formula_label = tk.Label(card, textvariable=formula_var, bg="white", fg="#333", anchor="w")
+        formula_label.pack(fill="x", pady=(0, 4))
+
+        status_label = tk.Label(card, textvariable=status_var, anchor="w", bg="white", fg="#555", wraplength=360, justify="left")
         status_label.pack(fill="x", pady=(0, 4))
 
         entry = {
@@ -435,15 +537,23 @@ class ICS_GUI:
             "image_thumb": None,
             "image_path": None,
             "severity_var": severity_var,
+            "severity_menu": severity_menu,
             "severity_label": severity_label,
             "note_var": note_var,
             "status_var": status_var,
             "status_label": status_label,
+            "multiplier_var": multiplier_var,
+            "multiplier_spin": multiplier_spin,
+            "formula_var": formula_var,
+            "formula_label": formula_label,
+            "multiplier_dirty": False,
+            "suppress_multiplier_trace": False,
         }
 
         origin_var.trace_add("write", lambda *_args, e=entry: self.on_accident_entry_changed(e))
         target_var.trace_add("write", lambda *_args, e=entry: self.on_accident_entry_changed(e))
         severity_var.trace_add("write", lambda *_args, e=entry: self.update_entry_severity_display(e))
+        multiplier_var.trace_add("write", lambda *_args, e=entry: self.on_entry_multiplier_changed(e))
 
         self.accident_entries.append(entry)
         self.populate_entry_dropdowns(entry)
@@ -527,6 +637,38 @@ class ICS_GUI:
     def update_entry_severity_display(self, entry):
         severity = entry["severity_var"].get()
         entry["severity_label"].config(text=f"Severity: {severity}")
+        if severity in self.SEVERITY_LEVELS and not entry.get("multiplier_dirty"):
+            self._set_entry_multiplier(entry, self.SEVERITY_LEVELS[severity], reset_dirty=False)
+        self.update_entry_formula(entry)
+        if not self._suspend_entry_sync:
+            self.sync_accidents_to_graph()
+
+    def _set_entry_multiplier(self, entry, value, reset_dirty=True):
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            numeric = 1.0
+        entry["suppress_multiplier_trace"] = True
+        entry["multiplier_var"].set(round(numeric, 2))
+        entry["suppress_multiplier_trace"] = False
+        if reset_dirty:
+            entry["multiplier_dirty"] = False
+        self.update_entry_formula(entry)
+
+    def update_entry_formula(self, entry):
+        severity = entry["severity_var"].get()
+        try:
+            multiplier = float(entry["multiplier_var"].get())
+        except (tk.TclError, ValueError, TypeError):
+            multiplier = 1.0
+        entry["formula_var"].set(f"Formula: time × {severity} × {multiplier:.2f}")
+
+    def on_entry_multiplier_changed(self, entry, *_args):
+        if entry.get("suppress_multiplier_trace"):
+            return
+        entry["multiplier_dirty"] = True
+        self.update_entry_formula(entry)
+        self.sync_accidents_to_graph()
 
     def upload_entry_image(self, frame):
         entry = next((item for item in self.accident_entries if item["frame"] == frame), None)
@@ -587,16 +729,22 @@ class ICS_GUI:
             except ValueError:
                 continue
             severity = entry["severity_var"].get()
-            multiplier = self.SEVERITY_LEVELS.get(severity)
-            if multiplier is None:
-                continue
+            try:
+                multiplier = float(entry["multiplier_var"].get())
+            except (tk.TclError, ValueError, TypeError):
+                multiplier = self.SEVERITY_LEVELS.get(severity, 1.0)
+            formula_var = entry.get("formula_var")
+            formula_text = formula_var.get() if formula_var else ""
             self.user_accidents[(origin_id, target_id)] = {
                 "severity": severity,
                 "multiplier": multiplier,
                 "image_path": entry.get("image_path"),
                 "model": self.selected_model_var.get(),
+                "formula": formula_text,
             }
         self.rebuild_graph_with_accidents()
+        if self.user_accidents:
+            self.mark_routes_stale("Accident slowdowns updated.")
 
     # ---------------------------
     # Routing
@@ -644,6 +792,7 @@ class ICS_GUI:
             self.update_route_selector()
         default_destination = self.destination_defaults[0] if self.destination_defaults else None
         self.draw_map(origin=self.origin_default, destination=default_destination)
+        self.mark_routes_stale("Map changed. Run routing.")
 
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
         if self.map_widget is None:
@@ -678,10 +827,32 @@ class ICS_GUI:
             marker = self.map_widget.set_marker(lat, lon, text=display_label)
             self.map_markers.append(marker)
 
+        self.render_base_paths()
+
         if not highlighted_paths:
             return
 
         self.route_paths = []
+
+    def render_base_paths(self):
+        if self.map_widget is None:
+            return
+        base_edges = set()
+        if self.edge_polylines:
+            base_edges.update(self.edge_polylines.keys())
+        if self.graph_original:
+            for u, neighbors in self.graph_original.items():
+                for nbr, _cost in neighbors:
+                    base_edges.add((u, nbr))
+        for edge in sorted(base_edges):
+            u, v = edge
+            points = self.build_route_polyline([u, v])
+            if len(points) < 2:
+                continue
+            try:
+                self.map_widget.set_path(points, color="#b4b4b4", width=2)
+            except Exception:
+                continue
 
     def build_route_polyline(self, node_path):
         if not node_path:
@@ -825,6 +996,15 @@ class ICS_GUI:
                 self.destination_var.set("-- choose destination --")
         self.refresh_accident_entry_menus()
 
+    def mark_routes_stale(self, reason="Graph changed."):
+        self.routes_stale = True
+        self.routing_status_var.set(f"Routes stale: {reason} Click 'Run Routing'.")
+
+    def mark_routes_fresh(self):
+        self.routes_stale = False
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.routing_status_var.set(f"Routes up to date (last run {timestamp}).")
+
     def rebuild_graph_with_accidents(self):
         if not self.graph_original:
             return
@@ -846,7 +1026,7 @@ class ICS_GUI:
             if applied:
                 new_graph[u] = updated
         self.graph = new_graph
-        self.routes_stale = True
+        self.mark_routes_stale("Accident data changed.")
         self.render_active_route()
 
     def on_map_change(self, selection):
@@ -1046,9 +1226,19 @@ class ICS_GUI:
 
         lines.append("")
         lines.append(f"Nodes expanded: {nodes_expanded}")
+        if self.user_accidents:
+            lines.append("")
+            lines.append("Applied accident slowdowns:")
+            for (u, v), info in sorted(self.user_accidents.items()):
+                lines.append(
+                    f"- {self.node_label(u)} -> {self.node_label(v)}: {info['severity']} × {info['multiplier']:.2f}"
+                )
+                formula_text = info.get("formula")
+                if formula_text:
+                    lines.append(f"  Formula: {formula_text}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
-        self.routes_stale = False
+        self.mark_routes_fresh()
 
     def update_route_selector(self):
         if len(self.current_routes) <= 1:
