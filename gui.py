@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from datetime import datetime
 
 import copy
 import json
@@ -32,6 +33,9 @@ class ICS_GUI:
         "Moderate": 1.35,
         "Severe": 1.75,
     }
+    MAX_ACCIDENTS = 3
+    ORIGIN_PLACEHOLDER = "-- choose start --"
+    TARGET_PLACEHOLDER = "-- choose end --"
     CANVAS_WIDTH = 760
     CANVAS_HEIGHT = 700
     MAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
@@ -48,12 +52,6 @@ class ICS_GUI:
             )
             raise SystemExit(1)
 
-        # ML prediction placeholders
-        self.uploaded_img = None
-        self.cnn_model = None
-        self.model2 = None
-        self.current_severity = None
-
         self.graph = {}
         self.graph_original = {}
         self.origin_default = None
@@ -69,18 +67,17 @@ class ICS_GUI:
         self.route_paths = []
         self.current_meta_zoom = 15
         self.edge_polylines = {}
-        self.accident_origin_menu = None
-        self.accident_target_menu = None
-        self.accident_list_keys = []
-        self.routes_stale = False
-        self.cached_accident_edge_labels = ["(no edges available)"]
+        self.routes_stale = True
+        self.routing_status_var = tk.StringVar(value="Routes not yet computed.")
         self.animation_after_id = None
         self.animation_path_handle = None
         self.animation_points = []
         self.animation_step = 0
+        self.base_edge_handles = []
 
         self.model_options = ["CNN", "Transfer Learning (MobileNetV2)", "Random Forest"]
         self.selected_model_var = tk.StringVar(value=self.model_options[0])
+        self.severity_choices = list(self.SEVERITY_LEVELS.keys())
 
         self.map_entries = self.discover_map_files()
         if not self.map_entries:
@@ -111,14 +108,16 @@ class ICS_GUI:
         self.current_map_entry = self.map_entries[0]
         self.map_var = tk.StringVar(value=self.current_map_entry["label"])
         self.map_label_var = tk.StringVar()
-        self.accident_origin_var = tk.StringVar(value="(origin)")
-        self.accident_target_var = tk.StringVar(value="(neighbor)")
-        self.accident_status_var = tk.StringVar(value="")
-        self.accident_listbox = None
-        self.accident_origin_menu = None
-        self.accident_target_menu = None
-        self.current_accident_origin = None
-        self.current_accident_target = None
+        self.accident_entries = []
+        self.accident_entries_container = None
+        self.no_accidents_label = None
+        self.add_accident_button = None
+        self.model_run_summary_var = tk.StringVar(value="No accident predictions yet.")
+        self.cnn_label = None
+        self.model2_label = None
+        self.final_label = None
+        self.run_routing_button = None
+        self._suspend_entry_sync = False
 
         if self.current_map_entry.get("map_path"):
             self.load_map_data(self.current_map_entry)
@@ -163,7 +162,7 @@ class ICS_GUI:
         right_outer.pack(side="right", fill="y")
 
         # Canvas used for scrolling
-        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=480)
+        right_canvas = tk.Canvas(right_outer, bg="#f5f5f5", width=480, highlightthickness=0)
         right_canvas.pack(side="left", fill="both", expand=True)
 
         # Scrollbar
@@ -171,10 +170,6 @@ class ICS_GUI:
         scrollbar.pack(side="right", fill="y")
 
         right_canvas.configure(yscrollcommand=scrollbar.set)
-        right_canvas.bind(
-            "<Configure>",
-            lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all"))
-        )
 
         def _on_mousewheel(event):
             if event.delta:
@@ -184,56 +179,114 @@ class ICS_GUI:
 
         # Actual content frame placed INSIDE the canvas
         right_container = tk.Frame(right_canvas, bg="#f5f5f5")
-        right_canvas.create_window((0, 0), window=right_container, anchor="n")
+        container_window = right_canvas.create_window((0, 0), window=right_container, anchor="nw")
+
+        def _sync_scrollregion(event):
+            right_canvas.configure(scrollregion=right_canvas.bbox("all"))
+            right_canvas.itemconfig(container_window, width=right_canvas.winfo_width())
+
+        right_container.bind("<Configure>", _sync_scrollregion)
 
         right = tk.Frame(right_container, bg="#f5f5f5", padx=30, pady=30)
         right.pack(expand=True)
 
         # ==============================
-        # RIGHT SIDE CONTENT (unchanged)
+        # Accident Detection & Impact
         # ==============================
-        header = tk.Label(
+        incidents = tk.LabelFrame(
             right,
-            text="Accident Image Classification",
-            font=("Arial", 16, "bold"),
+            text="Accident Detection & Impact",
             bg="#f5f5f5",
+            padx=12,
+            pady=12,
         )
-        header.pack(pady=10)
+        incidents.pack(fill="x", pady=10)
 
-        self.preview = tk.Label(right, text="No Image Uploaded",
-                                bg="#ddd", width=40, height=12)
-        self.preview.pack(pady=10, padx=10)
+        model_row = tk.Frame(incidents, bg="#f5f5f5")
+        model_row.pack(fill="x", pady=(0, 6))
 
-        btn_row = tk.Frame(right, bg="#f5f5f5")
-        btn_row.pack(pady=5)
-
-        tk.Button(
-            btn_row,
-            text="Upload Image",
-            command=self.upload_image,
-            width=20,
-        ).pack(side="left", padx=(0, 10))
-
-        tk.Label(btn_row, text="Model:", bg="#f5f5f5").pack(side="left")
-        model_menu = tk.OptionMenu(btn_row, self.selected_model_var, *self.model_options)
-        model_menu.config(width=18)
-        model_menu.pack(side="left", padx=(6, 0))
-
-        self.final_label = tk.Label(right, text="Final Severity: -",
-                                    font=("Arial", 13, "bold"),
-                                    fg="darkred")
-        self.final_label.pack(fill="x", pady=10)
+        tk.Label(model_row, text="Model:", bg="#f5f5f5").pack(side="left")
+        model_menu = tk.OptionMenu(model_row, self.selected_model_var, *self.model_options)
+        model_menu.config(width=20)
+        model_menu.pack(side="left", padx=(6, 12))
 
         tk.Button(
-            right,
+            model_row,
             text="Run Model",
             command=self.run_ml_prediction,
-            width=25,
-        ).pack(pady=5)
+            width=12,
+        ).pack(side="right")
 
-        tk.Label(right, text="---------------------------------").pack(pady=10)
+        self.model_summary_label = tk.Label(
+            incidents,
+            textvariable=self.model_run_summary_var,
+            anchor="w",
+            bg="#f5f5f5",
+            fg="#444",
+        )
+        self.model_summary_label.pack(fill="x", pady=(0, 4))
 
-        tk.Label(right, text="Route Finder", font=("Arial", 16, "bold"), bg="#f5f5f5").pack()
+        self.cnn_label = tk.Label(
+            incidents,
+            text="Primary model output: -",
+            anchor="w",
+            bg="#f5f5f5",
+            fg="#222",
+        )
+        self.cnn_label.pack(fill="x")
+
+        self.model2_label = tk.Label(
+            incidents,
+            text="Notes: -",
+            anchor="w",
+            bg="#f5f5f5",
+            fg="#555",
+        )
+        self.model2_label.pack(fill="x", pady=(0, 2))
+
+        self.final_label = tk.Label(
+            incidents,
+            text="Applied severity levels: (none)",
+            anchor="w",
+            bg="#f5f5f5",
+            fg="darkred",
+            font=("Arial", 11, "bold"),
+        )
+        self.final_label.pack(fill="x", pady=(0, 6))
+
+        tk.Label(
+            incidents,
+            text="Add up to three accident reports. Each report selects a road segment and image.",
+            wraplength=360,
+            justify="left",
+            bg="#f5f5f5",
+            fg="#555",
+        ).pack(fill="x")
+
+        self.accident_entries_container = tk.Frame(incidents, bg="#f5f5f5")
+        self.accident_entries_container.pack(fill="both", expand=True, pady=(8, 0))
+
+        self.no_accidents_label = tk.Label(
+            self.accident_entries_container,
+            text="No accidents added. Click 'Add Accident' to begin.",
+            bg="#f5f5f5",
+            fg="#666",
+            anchor="w",
+        )
+        self.no_accidents_label.pack(fill="x", pady=6)
+
+        self.add_accident_button = tk.Button(
+            incidents,
+            text="+ Add Accident",
+            command=self.add_accident_entry,
+            width=20,
+        )
+        self.add_accident_button.pack(pady=(10, 0))
+
+        # ==============================
+        # Routing Controls
+        # ==============================
+        tk.Label(right, text="Route Finder", font=("Arial", 16, "bold"), bg="#f5f5f5").pack(pady=(20, 0))
 
         routing_wrapper = tk.Frame(right, bg="#f5f5f5")
         routing_wrapper.pack(fill="x", pady=10, padx=20)
@@ -292,76 +345,21 @@ class ICS_GUI:
 
         selections.grid_columnconfigure(1, weight=1)
 
-        accident_frame = tk.LabelFrame(
+        self.run_routing_button = tk.Button(
             right,
-            text="Accident Impact Controls",
-            bg="#f5f5f5",
-            padx=10,
-            pady=10,
+            text="Run Routing",
+            command=self.run_routing,
+            width=25,
         )
-        accident_frame.pack(fill="x", pady=10)
-
+        self.run_routing_button.pack(pady=10)
         tk.Label(
-            accident_frame,
-            text="Affected Road Starts At:",
+            right,
+            textvariable=self.routing_status_var,
+            fg="#8a2d0c",
             bg="#f5f5f5",
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w")
-
-        self.accident_origin_menu = tk.OptionMenu(accident_frame, self.accident_origin_var, "(no nodes)")
-        self.accident_origin_menu.grid(row=0, column=1, sticky="ew")
-
-        tk.Label(
-            accident_frame,
-            text="...and Ends At:",
-            bg="#f5f5f5",
-            anchor="w",
-        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
-
-        self.accident_target_menu = tk.OptionMenu(accident_frame, self.accident_target_var, "(no neighbors)")
-        self.accident_target_menu.grid(row=1, column=1, sticky="ew", pady=(6, 0))
-
-        tk.Button(
-            accident_frame,
-            text="Apply Slowdown",
-            command=self.add_custom_accident,
-            width=20,
-        ).grid(row=2, column=0, columnspan=2, pady=(8, 4))
-
-        list_frame = tk.Frame(accident_frame, bg="#f5f5f5")
-        list_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(4, 4))
-        accident_frame.grid_columnconfigure(1, weight=1)
-        accident_frame.grid_rowconfigure(3, weight=1)
-
-        list_scroll = tk.Scrollbar(list_frame, orient="vertical")
-        self.accident_listbox = tk.Listbox(list_frame, height=5, yscrollcommand=list_scroll.set)
-        self.accident_listbox.pack(side="left", fill="both", expand=True)
-        list_scroll.config(command=self.accident_listbox.yview)
-        list_scroll.pack(side="right", fill="y")
-
-        btn_row = tk.Frame(accident_frame, bg="#f5f5f5")
-        btn_row.grid(row=4, column=0, columnspan=2, pady=(4, 0))
-
-        tk.Button(
-            btn_row,
-            text="Remove Selected Road",
-            command=self.remove_selected_accident,
-            width=18,
-        ).pack(side="left", padx=(0, 6))
-
-        tk.Button(
-            btn_row,
-            text="Clear All Slowdowns",
-            command=self.clear_custom_accidents,
-            width=16,
-        ).pack(side="left")
-
-        self.accident_status_var.set("")
-        self.recompute_accident_edges()
-
-        tk.Button(right, text="Run Routing",
-                command=self.run_routing,
-                width=25).pack(pady=10)
+            wraplength=360,
+            justify="left",
+        ).pack(pady=(0, 10), padx=10, fill="x")
 
         tk.Label(right, textvariable=self.map_label_var, fg="#555", bg="#f5f5f5").pack()
 
@@ -376,27 +374,13 @@ class ICS_GUI:
         self.route_output.pack(side="left", fill="both", expand=True)
         scroll.config(command=self.route_output.yview)
 
-
-    # ---------------------------
-    # Image Upload
-    # ---------------------------
-    def upload_image(self):
-        filename = filedialog.askopenfilename(
-            filetypes=[("Images", "*.jpg *.jpeg *.png")])
-        if not filename:
-            return
-
-        img = Image.open(filename).resize((300, 300))
-        self.uploaded_img = img
-        self.preview_imgtk = ImageTk.PhotoImage(img)
-        self.preview.config(image=self.preview_imgtk, text="")
-
     # ---------------------------
     # ML Prediction Pipeline
     # ---------------------------
     def run_ml_prediction(self):
-        if self.uploaded_img is None:
-            messagebox.showwarning("Error", "Upload an accident image first.")
+        active_entries = [entry for entry in self.accident_entries if entry.get("image_path")]
+        if not active_entries:
+            messagebox.showwarning("No images", "Add at least one accident image before running the model.")
             return
 
         selected_model = self.selected_model_var.get()
@@ -408,17 +392,358 @@ class ICS_GUI:
         model_result, note = placeholder_outputs.get(
             selected_model, ("Moderate", "Default response")
         )
-        cnn_result = model_result
-        model2_result = note
-        final_result = model_result
 
-        # Update UI
-        self.cnn_label.config(text=f"{selected_model} Prediction: {cnn_result}")
-        self.model2_label.config(text=f"Notes: {model2_result}")
-        self.final_label.config(text=f"Final Severity: {final_result}")
+        applied = []
+        last_note = ""
+        self._suspend_entry_sync = True
+        try:
+            for entry in active_entries:
+                try:
+                    result = self._predict_severity(entry["image_path"], selected_model)
+                except Exception as exc:
+                    messagebox.showerror("Prediction error", f"Failed to process image:\n{exc}")
+                    return
+                severity = result["severity"]
+                multiplier = result["multiplier"]
+                note_text = result["note"]
+                entry["multiplier_dirty"] = False
+                entry["severity_var"].set(severity)
+                self._set_entry_multiplier(entry, multiplier, reset_dirty=True)
+                entry["note_var"].set(note_text)
+                entry["status_var"].set(note_text)
+                applied.append(severity)
+                last_note = note_text
+        finally:
+            self._suspend_entry_sync = False
 
-        # Store for routing
-        self.current_severity = final_result
+        if applied:
+            self.cnn_label.config(text=f"{selected_model}: processed {len(applied)} accident image(s).")
+            self.model2_label.config(text=f"Notes: {last_note or 'Model update applied.'}")
+            self.final_label.config(text=f"Applied severity levels: {', '.join(applied)}")
+        self.sync_accidents_to_graph()
+        self.model_run_summary_var.set(
+            f"{selected_model} processed {len(active_entries)} accident(s)."
+        )
+        self.mark_routes_stale("New severity predictions applied.")
+
+    def _predict_severity(self, image_path, model_name):
+        placeholder_outputs = {
+            "CNN": ("Minor", "CNN logits indicate low severity"),
+            "Transfer Learning (MobileNetV2)": ("Moderate", "MobileNetV2 features suggest caution"),
+            "Random Forest": ("Severe", "Ensemble votes for severe incident"),
+        }
+        severity, note = placeholder_outputs.get(
+            model_name,
+            ("Moderate", "Default response"),
+        )
+        multiplier = self.SEVERITY_LEVELS.get(severity, 1.0)
+        return {"severity": severity, "multiplier": multiplier, "note": note}
+
+    # ---------------------------
+    # Accident Entry Management
+    # ---------------------------
+    def add_accident_entry(self):
+        if self.accident_entries_container is None:
+            return
+        if len(self.accident_entries) >= self.MAX_ACCIDENTS:
+            messagebox.showinfo("Limit reached", "You can only track up to three accidents at a time.")
+            return
+
+        card = tk.Frame(self.accident_entries_container, bg="white", bd=1, relief="solid")
+        card.pack(fill="x", pady=6)
+
+        header = tk.Frame(card, bg="white")
+        header.pack(fill="x")
+        title_label = tk.Label(header, text="", font=("Arial", 12, "bold"), bg="white")
+        title_label.pack(side="left")
+        remove_btn = tk.Button(
+            header,
+            text="Remove",
+            command=lambda frame=card: self.remove_accident_entry(frame),
+        )
+        remove_btn.pack(side="right")
+
+        origin_var = tk.StringVar(value=self.ORIGIN_PLACEHOLDER)
+        target_var = tk.StringVar(value=self.TARGET_PLACEHOLDER)
+        severity_var = tk.StringVar(value="Pending")
+        note_var = tk.StringVar(value="Upload an image to classify.")
+        status_var = tk.StringVar(value="Upload an image to classify.")
+
+        row1 = tk.Frame(card, bg="white")
+        row1.pack(fill="x", pady=(6, 2))
+        tk.Label(row1, text="Starts at:", bg="white").grid(row=0, column=0, sticky="w")
+        origin_menu = tk.OptionMenu(row1, origin_var, self.ORIGIN_PLACEHOLDER)
+        origin_menu.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        row1.grid_columnconfigure(1, weight=1)
+
+        row2 = tk.Frame(card, bg="white")
+        row2.pack(fill="x", pady=(2, 6))
+        tk.Label(row2, text="Ends at:", bg="white").grid(row=0, column=0, sticky="w")
+        target_menu = tk.OptionMenu(row2, target_var, self.TARGET_PLACEHOLDER)
+        target_menu.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        row2.grid_columnconfigure(1, weight=1)
+
+        upload_row = tk.Frame(card, bg="white")
+        upload_row.pack(fill="x", pady=(0, 6))
+        tk.Button(
+            upload_row,
+            text="Upload Image",
+            command=lambda entry_frame=card: self.upload_entry_image(entry_frame),
+            width=15,
+        ).pack(side="left")
+        image_label = tk.Label(upload_row, text="No image", bg="#eeeeee", width=25, height=5)
+        image_label.pack(side="left", padx=10)
+
+        severity_row = tk.Frame(card, bg="white")
+        severity_row.pack(fill="x", pady=(0, 4))
+        tk.Label(severity_row, text="Severity:", bg="white").grid(row=0, column=0, sticky="w")
+        severity_options = ["Pending"] + self.severity_choices
+        severity_menu = tk.OptionMenu(severity_row, severity_var, severity_var.get(), *severity_options)
+        severity_menu.grid(row=0, column=1, sticky="ew", padx=(6, 8))
+        severity_row.grid_columnconfigure(1, weight=1)
+
+        multiplier_var = tk.DoubleVar(value=1.00)
+        tk.Label(severity_row, text="Multiplier:", bg="white").grid(row=0, column=2, sticky="w")
+        multiplier_spin = tk.Spinbox(
+            severity_row,
+            from_=1.00,
+            to=5.00,
+            increment=0.05,
+            width=6,
+            textvariable=multiplier_var,
+            format="%.2f",
+        )
+        multiplier_spin.grid(row=0, column=3, sticky="w", padx=(6, 0))
+
+        severity_label = tk.Label(card, text="Severity: Pending", bg="white", fg="darkred", anchor="w")
+        severity_label.pack(fill="x")
+
+        formula_var = tk.StringVar(value="Formula: time × Pending × 1.00")
+        formula_label = tk.Label(card, textvariable=formula_var, bg="white", fg="#333", anchor="w")
+        formula_label.pack(fill="x", pady=(0, 4))
+
+        status_label = tk.Label(card, textvariable=status_var, anchor="w", bg="white", fg="#555", wraplength=360, justify="left")
+        status_label.pack(fill="x", pady=(0, 4))
+
+        entry = {
+            "frame": card,
+            "title_label": title_label,
+            "origin_var": origin_var,
+            "target_var": target_var,
+            "origin_menu": origin_menu,
+            "target_menu": target_menu,
+            "image_label": image_label,
+            "image_thumb": None,
+            "image_path": None,
+            "severity_var": severity_var,
+            "severity_menu": severity_menu,
+            "severity_label": severity_label,
+            "note_var": note_var,
+            "status_var": status_var,
+            "status_label": status_label,
+            "multiplier_var": multiplier_var,
+            "multiplier_spin": multiplier_spin,
+            "formula_var": formula_var,
+            "formula_label": formula_label,
+            "multiplier_dirty": False,
+            "suppress_multiplier_trace": False,
+        }
+
+        origin_var.trace_add("write", lambda *_args, e=entry: self.on_accident_entry_changed(e))
+        target_var.trace_add("write", lambda *_args, e=entry: self.on_accident_entry_changed(e))
+        severity_var.trace_add("write", lambda *_args, e=entry: self.update_entry_severity_display(e))
+        multiplier_var.trace_add("write", lambda *_args, e=entry: self.on_entry_multiplier_changed(e))
+
+        self.accident_entries.append(entry)
+        self.populate_entry_dropdowns(entry)
+        self.update_entry_severity_display(entry)
+        self.update_accident_cards_header()
+        self.ensure_no_accidents_label()
+        self.update_add_accident_button_state()
+        self.sync_accidents_to_graph()
+
+    def remove_accident_entry(self, frame):
+        target_entry = None
+        for entry in self.accident_entries:
+            if entry["frame"] == frame:
+                target_entry = entry
+                break
+        if not target_entry:
+            return
+        target_entry["frame"].destroy()
+        self.accident_entries.remove(target_entry)
+        self.update_accident_cards_header()
+        self.ensure_no_accidents_label()
+        self.update_add_accident_button_state()
+        self.sync_accidents_to_graph()
+
+    def ensure_no_accidents_label(self):
+        if self.no_accidents_label is None:
+            return
+        if self.accident_entries:
+            if self.no_accidents_label.winfo_manager():
+                self.no_accidents_label.pack_forget()
+        else:
+            self.no_accidents_label.pack(fill="x", pady=6)
+
+    def update_accident_cards_header(self):
+        for idx, entry in enumerate(self.accident_entries, start=1):
+            entry["title_label"].config(text=f"Accident {idx}")
+
+    def update_add_accident_button_state(self):
+        if self.add_accident_button is None:
+            return
+        if len(self.accident_entries) >= self.MAX_ACCIDENTS:
+            self.add_accident_button.config(state="disabled", text="Maximum accidents added")
+        else:
+            self.add_accident_button.config(state="normal", text="+ Add Accident")
+
+    def entry_landmark_choices(self):
+        names = self.landmark_names()
+        if names:
+            return names
+        return []
+
+    def populate_entry_dropdowns(self, entry):
+        choices = self.entry_landmark_choices()
+        origin_menu = entry["origin_menu"]["menu"]
+        target_menu = entry["target_menu"]["menu"]
+
+        def rebuild(menu, var, placeholder):
+            menu.delete(0, "end")
+            if not choices:
+                menu.add_command(label="(no landmarks)", command=lambda: None)
+                var.set("(no landmarks)")
+                return
+            menu.add_command(label=placeholder, command=lambda v=placeholder: var.set(v))
+            for name in choices:
+                menu.add_command(label=name, command=lambda v=name: var.set(v))
+            if var.get() not in ([placeholder] + choices):
+                var.set(placeholder)
+
+        rebuild(origin_menu, entry["origin_var"], self.ORIGIN_PLACEHOLDER)
+        rebuild(target_menu, entry["target_var"], self.TARGET_PLACEHOLDER)
+
+    def refresh_accident_entry_menus(self):
+        for entry in self.accident_entries:
+            self.populate_entry_dropdowns(entry)
+
+    def on_accident_entry_changed(self, entry):
+        entry["severity_var"].set("Pending")
+        entry["status_var"].set("Waiting for classification.")
+        self.sync_accidents_to_graph()
+
+    def update_entry_severity_display(self, entry):
+        severity = entry["severity_var"].get()
+        entry["severity_label"].config(text=f"Severity: {severity}")
+        if severity in self.SEVERITY_LEVELS and not entry.get("multiplier_dirty"):
+            self._set_entry_multiplier(entry, self.SEVERITY_LEVELS[severity], reset_dirty=False)
+        self.update_entry_formula(entry)
+        if not self._suspend_entry_sync:
+            self.sync_accidents_to_graph()
+
+    def _set_entry_multiplier(self, entry, value, reset_dirty=True):
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            numeric = 1.0
+        entry["suppress_multiplier_trace"] = True
+        entry["multiplier_var"].set(round(numeric, 2))
+        entry["suppress_multiplier_trace"] = False
+        if reset_dirty:
+            entry["multiplier_dirty"] = False
+        self.update_entry_formula(entry)
+
+    def update_entry_formula(self, entry):
+        severity = entry["severity_var"].get()
+        try:
+            multiplier = float(entry["multiplier_var"].get())
+        except (tk.TclError, ValueError, TypeError):
+            multiplier = 1.0
+        entry["formula_var"].set(f"Formula: time × {severity} × {multiplier:.2f}")
+
+    def on_entry_multiplier_changed(self, entry, *_args):
+        if entry.get("suppress_multiplier_trace"):
+            return
+        entry["multiplier_dirty"] = True
+        self.update_entry_formula(entry)
+        self.sync_accidents_to_graph()
+
+    def upload_entry_image(self, frame):
+        entry = next((item for item in self.accident_entries if item["frame"] == frame), None)
+        if entry is None:
+            return
+        filename = filedialog.askopenfilename(
+            filetypes=[("Images", "*.jpg *.jpeg *.png")]
+        )
+        if not filename:
+            return
+        try:
+            image = Image.open(filename)
+        except Exception:
+            messagebox.showerror("Image error", "Unable to open the selected image.")
+            return
+        thumbnail = image.copy()
+        thumbnail.thumbnail((220, 180))
+        photo = ImageTk.PhotoImage(thumbnail)
+        entry["image_thumb"] = photo
+        entry["image_label"].config(image=photo, text="")
+        entry["image_path"] = filename
+        entry["severity_var"].set("Pending")
+        entry["status_var"].set("Image ready. Run the model to classify.")
+        self.model_run_summary_var.set("Images updated. Run the model to classify.")
+        self.sync_accidents_to_graph()
+
+    def clear_all_accident_entries(self):
+        if not hasattr(self, "accident_entries") or not self.accident_entries:
+            if self.no_accidents_label and not self.no_accidents_label.winfo_manager():
+                self.no_accidents_label.pack(fill="x", pady=6)
+            return
+        for entry in list(self.accident_entries):
+            entry["frame"].destroy()
+        self.accident_entries.clear()
+        self.ensure_no_accidents_label()
+        self.update_add_accident_button_state()
+        self.sync_accidents_to_graph()
+
+    def sync_accidents_to_graph(self):
+        if not hasattr(self, "user_accidents"):
+            return
+        self.user_accidents = {}
+        for entry in self.accident_entries:
+            origin_name = entry["origin_var"].get()
+            target_name = entry["target_var"].get()
+            if (
+                not origin_name
+                or not target_name
+                or origin_name.startswith("--")
+                or target_name.startswith("--")
+                or origin_name.startswith("(")
+                or target_name.startswith("(")
+            ):
+                continue
+            try:
+                origin_id = self.resolve_node(origin_name)
+                target_id = self.resolve_node(target_name)
+            except ValueError:
+                continue
+            severity = entry["severity_var"].get()
+            try:
+                multiplier = float(entry["multiplier_var"].get())
+            except (tk.TclError, ValueError, TypeError):
+                multiplier = self.SEVERITY_LEVELS.get(severity, 1.0)
+            formula_var = entry.get("formula_var")
+            formula_text = formula_var.get() if formula_var else ""
+            self.user_accidents[(origin_id, target_id)] = {
+                "severity": severity,
+                "multiplier": multiplier,
+                "image_path": entry.get("image_path"),
+                "model": self.selected_model_var.get(),
+                "formula": formula_text,
+            }
+        self.rebuild_graph_with_accidents()
+        if self.user_accidents:
+            self.mark_routes_stale("Accident slowdowns updated.")
 
     # ---------------------------
     # Routing
@@ -459,15 +784,14 @@ class ICS_GUI:
         self.graph_original = copy.deepcopy(self.graph)
         self.user_accidents = {}
         self.routes_stale = False
-        self.accident_status_var.set("No custom accidents.")
-        self.recompute_accident_edges()
-        self.refresh_accident_listbox()
+        self.clear_all_accident_entries()
         self.current_routes = []
         self.active_route_index = 0
         if hasattr(self, "route_selector_frame"):
             self.update_route_selector()
         default_destination = self.destination_defaults[0] if self.destination_defaults else None
         self.draw_map(origin=self.origin_default, destination=default_destination)
+        self.mark_routes_stale("Map changed. Run routing.")
 
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
         if self.map_widget is None:
@@ -502,10 +826,32 @@ class ICS_GUI:
             marker = self.map_widget.set_marker(lat, lon, text=display_label)
             self.map_markers.append(marker)
 
+        self.render_base_paths()
+
         if not highlighted_paths:
             return
 
         self.route_paths = []
+
+    def render_base_paths(self):
+        if self.map_widget is None:
+            return
+        base_edges = set()
+        if self.edge_polylines:
+            base_edges.update(self.edge_polylines.keys())
+        if self.graph_original:
+            for u, neighbors in self.graph_original.items():
+                for nbr, _cost in neighbors:
+                    base_edges.add((u, nbr))
+        for edge in sorted(base_edges):
+            u, v = edge
+            points = self.build_route_polyline([u, v])
+            if len(points) < 2:
+                continue
+            try:
+                self.map_widget.set_path(points, color="#b4b4b4", width=2)
+            except Exception:
+                continue
 
     def build_route_polyline(self, node_path):
         if not node_path:
@@ -647,124 +993,16 @@ class ICS_GUI:
                 self.origin_var.set("-- choose origin --")
             if self.destination_var.get() not in names:
                 self.destination_var.set("-- choose destination --")
+        self.refresh_accident_entry_menus()
 
-    def recompute_accident_edges(self):
-        self.update_accident_origin_menu()
+    def mark_routes_stale(self, reason="Graph changed."):
+        self.routes_stale = True
+        self.routing_status_var.set(f"Routes stale: {reason} Click 'Run Routing'.")
 
-    def update_accident_origin_menu(self):
-        if self.accident_origin_menu is None:
-            return
-        menu = self.accident_origin_menu["menu"]
-        menu.delete(0, "end")
-
-        if not self.graph_original:
-            self.accident_origin_var.set("(no nodes)")
-            menu.add_command(label="(no nodes)", command=lambda: None)
-            self.current_accident_origin = None
-            self.update_accident_target_menu(None)
-            return
-
-        nodes = sorted(self.graph_original.keys())
-        if not nodes:
-            self.accident_origin_var.set("(no nodes)")
-            menu.add_command(label="(no nodes)", command=lambda: None)
-            self.current_accident_origin = None
-            self.update_accident_target_menu(None)
-            return
-
-        placeholder = "-- choose start --"
-        self.accident_origin_var.set(placeholder)
-        menu.add_command(label=placeholder, command=lambda: self.reset_accident_selection())
-        for node in nodes:
-            label = self.node_label(node)
-            menu.add_command(
-                label=label,
-                command=lambda value=node: self.on_accident_origin_selected(value),
-            )
-        self.update_accident_target_menu(None)
-
-    def reset_accident_selection(self):
-        self.current_accident_origin = None
-        self.current_accident_target = None
-        self.accident_origin_var.set("-- choose start --")
-        self.accident_target_var.set("-- choose end --")
-        self.update_accident_target_menu(None)
-
-    def on_accident_origin_selected(self, node_id):
-        self.current_accident_origin = node_id
-        self.accident_origin_var.set(self.node_label(node_id))
-        neighbors = self.graph_original.get(node_id, [])
-        self.update_accident_target_menu(neighbors)
-
-    def update_accident_target_menu(self, neighbors):
-        if self.accident_target_menu is None:
-            return
-        menu = self.accident_target_menu["menu"]
-        menu.delete(0, "end")
-
-        if not neighbors:
-            self.accident_target_var.set("-- choose end --")
-            menu.add_command(label="(select origin first)", command=lambda: None)
-            self.current_accident_target = None
-            return
-
-        for nbr, cost in sorted(neighbors, key=lambda item: item[0]):
-            label = f"{self.node_label(nbr)} ({cost:.3f} h)"
-            menu.add_command(
-                label=label,
-                command=lambda value=nbr: self.on_accident_target_selected(value),
-            )
-        self.on_accident_target_selected(neighbors[0][0])
-
-    def on_accident_target_selected(self, node_id):
-        self.current_accident_target = node_id
-        self.accident_target_var.set(self.node_label(node_id))
-
-    def refresh_accident_listbox(self):
-        if self.accident_listbox is None:
-            return
-        self.accident_listbox.delete(0, tk.END)
-        self.accident_list_keys = []
-        for edge in sorted(self.user_accidents.keys()):
-            info = self.user_accidents[edge]
-            u, v = edge
-            label = f"{self.node_label(u)} -> {self.node_label(v)} ({info['severity']} ×{info['multiplier']:.2f})"
-            self.accident_listbox.insert(tk.END, label)
-            self.accident_list_keys.append(edge)
-
-    def add_custom_accident(self):
-        if not self.graph_original:
-            messagebox.showwarning("No graph", "Load a map before adding accidents.")
-            return
-        if self.current_accident_origin is None or self.current_accident_target is None:
-            messagebox.showwarning("Invalid edge", "Select an origin and target node.")
-            return
-        edge = (self.current_accident_origin, self.current_accident_target)
-        multiplier = self.SEVERITY_LEVELS.get("Moderate", 1.35)
-        self.user_accidents[edge] = {"severity": "Auto", "multiplier": multiplier}
-        self.refresh_accident_listbox()
-        self.rebuild_graph_with_accidents()
-
-    def remove_selected_accident(self):
-        if not self.accident_list_keys:
-            return
-        selection = self.accident_listbox.curselection()
-        if not selection:
-            messagebox.showinfo("Select entry", "Choose an accident entry to remove.")
-            return
-        idx = selection[0]
-        edge = self.accident_list_keys[idx]
-        if edge in self.user_accidents:
-            del self.user_accidents[edge]
-        self.refresh_accident_listbox()
-        self.rebuild_graph_with_accidents()
-
-    def clear_custom_accidents(self):
-        if not self.user_accidents:
-            return
-        self.user_accidents.clear()
-        self.refresh_accident_listbox()
-        self.rebuild_graph_with_accidents()
+    def mark_routes_fresh(self):
+        self.routes_stale = False
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.routing_status_var.set(f"Routes up to date (last run {timestamp}).")
 
     def rebuild_graph_with_accidents(self):
         if not self.graph_original:
@@ -787,7 +1025,7 @@ class ICS_GUI:
             if applied:
                 new_graph[u] = updated
         self.graph = new_graph
-        self.routes_stale = True
+        self.mark_routes_stale("Accident data changed.")
         self.render_active_route()
 
     def on_map_change(self, selection):
@@ -897,6 +1135,7 @@ class ICS_GUI:
         if not self.graph:
             messagebox.showwarning("Missing Map", "Map data is not loaded.")
             return
+        self.sync_accidents_to_graph()
 
         origin_name = self.origin_var.get()
         destination_name = self.destination_var.get()
@@ -986,9 +1225,19 @@ class ICS_GUI:
 
         lines.append("")
         lines.append(f"Nodes expanded: {nodes_expanded}")
+        if self.user_accidents:
+            lines.append("")
+            lines.append("Applied accident slowdowns:")
+            for (u, v), info in sorted(self.user_accidents.items()):
+                lines.append(
+                    f"- {self.node_label(u)} -> {self.node_label(v)}: {info['severity']} × {info['multiplier']:.2f}"
+                )
+                formula_text = info.get("formula")
+                if formula_text:
+                    lines.append(f"  Formula: {formula_text}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
-        self.routes_stale = False
+        self.mark_routes_fresh()
 
     def update_route_selector(self):
         if len(self.current_routes) <= 1:
