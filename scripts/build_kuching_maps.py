@@ -32,6 +32,8 @@ except ImportError as exc:  # pragma: no cover
 
 Number = float
 
+FALLBACK_SPEED_KMPH = 35.0
+
 
 def minutes_to_hours(value: Number) -> float:
     return float(value) / 60.0
@@ -423,6 +425,20 @@ def nearest_node_simple(G, lat: float, lon: float):
     return best
 
 
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Returns the great-circle distance between two lat/lon pairs in kilometers.
+    """
+    r = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r * c
+
+
 def map_landmarks(G, landmarks_spec: Dict[str, Tuple[float, float]]):
     mapped: Dict[str, int] = {}
     for name, (lat, lon) in landmarks_spec.items():
@@ -472,13 +488,26 @@ def build_connection_graph(
         if origin_node is None or target_node is None:
             print(f"[warn] Unable to map connection ({name_a} -> {name_b}) to OSM nodes")
             continue
+        new_u = name_to_newid[name_a]
+        new_v = name_to_newid[name_b]
         try:
             path_nodes = nx.shortest_path(
                 weighted_graph, origin_node, target_node, weight="weight"
             )
         except (nx.NetworkXNoPath, nx.NodeNotFound):
-            print(f"[warn] No path between {name_a} and {name_b}")
+            print(f"[warn] No path between {name_a} and {name_b}. Falling back to straight-line edge.")
+            lon_a, lat_a = nodes.get(new_u, (None, None))
+            lon_b, lat_b = nodes.get(new_v, (None, None))
+            if None in (lon_a, lat_a, lon_b, lat_b):
+                continue
+            distance_km = haversine_distance(lat_a, lon_a, lat_b, lon_b)
+            if distance_km <= 0:
+                distance_km = 0.05
+            cost_hours = max(distance_km / FALLBACK_SPEED_KMPH, 0.005)
+            edges[(new_u, new_v)] = cost_hours
+            polylines[(new_u, new_v)] = [(lon_a, lat_a), (lon_b, lat_b)]
             continue
+
         cost_seconds = 0.0
         polyline_points: List[Tuple[float, float]] = []
         for idx in range(len(path_nodes) - 1):
@@ -491,8 +520,6 @@ def build_connection_graph(
         for node_id in path_nodes:
             node_data = G.nodes[node_id]
             polyline_points.append((node_data["x"], node_data["y"]))
-        new_u = name_to_newid[name_a]
-        new_v = name_to_newid[name_b]
         edges[(new_u, new_v)] = cost_seconds / 3600.0
         polylines[(new_u, new_v)] = polyline_points
     return nodes, edges, landmarks, name_to_newid, polylines
@@ -821,6 +848,9 @@ def main():
                     "Farley Kuching": (1.484422037459582, 110.3329256689021),
                     "Big Canteen Food Court": (1.4825888651134826, 110.33056468161541),
                     "PETRONAS Batu 7 Jalan Penrissen": (1.4734832305104373, 110.32827718683153),
+                    "Public Bank": (1.4758158013915912, 110.33086098997738),
+                    "Affin Bank": (1.482142774834219, 110.33210856852779),
+                    "Sacred Heart Catholic Church": (1.4729283140305502, 110.32986297731111),
                 },
                 origin_name="Kuching International Airport",
                 destination_names=[
@@ -840,6 +870,24 @@ def main():
                     ("Big Canteen Food Court", "Farley Kuching"),
                     ("Farley Kuching", "Kuching International Airport"),
                     ("Big Canteen Food Court", "Kuching International Airport"),
+                    ("Big Canteen Food Court", "Affin Bank"),
+                    ("Affin Bank", "Big Canteen Food Court"),
+                    ("Affin Bank", "Farley Kuching"),
+                    ("Farley Kuching", "Affin Bank"),
+                    ("Kuching International Airport", "Affin Bank"),
+                    ("Affin Bank", "Kuching International Airport"),
+                    ("Jalan Liu Shan Bang Junction", "Public Bank"),
+                    ("Public Bank", "Jalan Liu Shan Bang Junction"),
+                    ("Public Bank", "Sacred Heart Catholic Church"),
+                    ("Sacred Heart Catholic Church", "Public Bank"),
+                    ("Public Bank", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Public Bank"),
+                    ("Sacred Heart Catholic Church", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Sacred Heart Catholic Church"),
+                    ("Sacred Heart Catholic Church", "PETRONAS Batu 7 Jalan Penrissen"),
+                    ("PETRONAS Batu 7 Jalan Penrissen", "Sacred Heart Catholic Church"),
+                    ("Public Bank", "PETRONAS Batu 7 Jalan Penrissen"),
+                    ("PETRONAS Batu 7 Jalan Penrissen", "Public Bank"),
                 ],
                 accident_connection=None,
                 zoom=15,
