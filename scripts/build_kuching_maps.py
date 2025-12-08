@@ -479,6 +479,35 @@ def build_connection_graph(
 
     edges: Dict[Tuple[int, int], float] = {}
     polylines: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
+    if weighted_graph.number_of_nodes() == 0:
+        raise ValueError("Weighted graph is empty.")
+
+    largest_component = max(
+        nx.connected_components(weighted_graph.to_undirected()), key=len
+    )
+    component_nodes = set(largest_component)
+
+    for name, node_id in list(name_to_node.items()):
+        if node_id not in component_nodes:
+            lat, lon = spec.landmarks.get(name, (None, None))
+            if lat is None or lon is None:
+                continue
+            best = None
+            best_dist = float("inf")
+            for candidate in component_nodes:
+                cx = G.nodes[candidate].get("x")
+                cy = G.nodes[candidate].get("y")
+                if cx is None or cy is None:
+                    continue
+                dist = (cx - lon) ** 2 + (cy - lat) ** 2
+                if dist < best_dist:
+                    best = candidate
+                    best_dist = dist
+            if best is not None:
+                name_to_node[name] = best
+
+    undirected_weighted = weighted_graph.to_undirected()
+
     for name_a, name_b in spec.connections:
         if name_a not in name_to_newid or name_b not in name_to_newid:
             print(f"[warn] Connection uses unknown landmark ({name_a} -> {name_b})")
@@ -490,23 +519,29 @@ def build_connection_graph(
             continue
         new_u = name_to_newid[name_a]
         new_v = name_to_newid[name_b]
+        path_nodes = None
         try:
             path_nodes = nx.shortest_path(
                 weighted_graph, origin_node, target_node, weight="weight"
             )
         except (nx.NetworkXNoPath, nx.NodeNotFound):
-            print(f"[warn] No path between {name_a} and {name_b}. Falling back to straight-line edge.")
-            lon_a, lat_a = nodes.get(new_u, (None, None))
-            lon_b, lat_b = nodes.get(new_v, (None, None))
-            if None in (lon_a, lat_a, lon_b, lat_b):
+            try:
+                path_nodes = nx.shortest_path(
+                    undirected_weighted, origin_node, target_node, weight="weight"
+                )
+            except (nx.NetworkXNoPath, nx.NodeNotFound):
+                print(f"[warn] No path between {name_a} and {name_b}. Falling back to straight-line edge.")
+                lon_a, lat_a = nodes.get(new_u, (None, None))
+                lon_b, lat_b = nodes.get(new_v, (None, None))
+                if None in (lon_a, lat_a, lon_b, lat_b):
+                    continue
+                distance_km = haversine_distance(lat_a, lon_a, lat_b, lon_b)
+                if distance_km <= 0:
+                    distance_km = 0.05
+                cost_hours = max(distance_km / FALLBACK_SPEED_KMPH, 0.005)
+                edges[(new_u, new_v)] = cost_hours
+                polylines[(new_u, new_v)] = [(lon_a, lat_a), (lon_b, lat_b)]
                 continue
-            distance_km = haversine_distance(lat_a, lon_a, lat_b, lon_b)
-            if distance_km <= 0:
-                distance_km = 0.05
-            cost_hours = max(distance_km / FALLBACK_SPEED_KMPH, 0.005)
-            edges[(new_u, new_v)] = cost_hours
-            polylines[(new_u, new_v)] = [(lon_a, lat_a), (lon_b, lat_b)]
-            continue
 
         cost_seconds = 0.0
         polyline_points: List[Tuple[float, float]] = []
@@ -683,95 +718,99 @@ def main():
                 zoom=16,
             ),
             OSMSpec(
-                name="kuching_museum_loop_osm",
-                bbox=(1.5500, 1.5585, 110.3390, 110.3455),
+                name="kuching_green_heights",
+                bbox=(1.4980, 1.5155, 110.3420, 110.3585),
                 landmarks={
-                    "Sarawak Museum": (1.551910, 110.343500),
-                    "Sarawak Islamic Heritage Museum": (1.551450, 110.342800),
-                    "Sarawak Art Museum": (1.553400, 110.341900),
-                    "Heroes Monument": (1.553000, 110.340800),
-                    "Padang Merdeka": (1.557014, 110.343616),
-                    "Wisma Hopoh": (1.556000, 110.340200),
-                    "Textile Museum": (1.557400, 110.343900),
-                    "Natural History Museum": (1.551800, 110.343100),
-                    "Taman Budaya Theater": (1.552800, 110.341200),
-                    "Bukit Siol Viewpoint": (1.555200, 110.342200),
-                    "St. Thomas' Cathedral": (1.557108, 110.345049),
+                    "Premier Food Republic": (1.503600, 110.349496),
+                    "Sin Chong Choon Cafe": (1.502671, 110.347235),
+                    "Shell Green Heights": (1.506678, 110.350221),
+                    "Taman BDC Park": (1.503737, 110.356130),
+                    "Petronas Green Heights": (1.501908, 110.344762),
+                    "Green Heights Park": (1.500698, 110.346407),
+                    "Maguro Buffet": (1.511854, 110.352739),
+                    "TalentSeed Daycare": (1.509690, 110.354338),
+                    "Hong Leong Bank": (1.503458, 110.351430),
+                    "BIG Pharmacy Hui Sing": (1.513580, 110.344643),
+                    "Borneoartifact Gallery": (1.512456, 110.347041),
                 },
-                origin_name="Sarawak Museum",
-                destination_names=["Padang Merdeka", "Sarawak Islamic Heritage Museum"],
+                origin_name="Premier Food Republic",
+                destination_names=["Taman BDC Park", "Maguro Buffet"],
                 connections=[
-                    ("Sarawak Museum", "Sarawak Islamic Heritage Museum"),
-                    ("Sarawak Islamic Heritage Museum", "Sarawak Museum"),
-                    ("Sarawak Museum", "Padang Merdeka"),
-                    ("Padang Merdeka", "Sarawak Museum"),
-                    ("Sarawak Museum", "Natural History Museum"),
-                    ("Natural History Museum", "Sarawak Museum"),
-                    ("Natural History Museum", "Sarawak Islamic Heritage Museum"),
-                    ("Sarawak Islamic Heritage Museum", "Natural History Museum"),
-                    ("Sarawak Art Museum", "Padang Merdeka"),
-                    ("Padang Merdeka", "Sarawak Art Museum"),
-                    ("Sarawak Art Museum", "Heroes Monument"),
-                    ("Heroes Monument", "Sarawak Art Museum"),
-                    ("Sarawak Islamic Heritage Museum", "Padang Merdeka"),
-                    ("Padang Merdeka", "Sarawak Islamic Heritage Museum"),
-                    ("Sarawak Art Museum", "Wisma Hopoh"),
-                    ("Wisma Hopoh", "Sarawak Art Museum"),
-                    ("Wisma Hopoh", "Padang Merdeka"),
-                    ("Padang Merdeka", "Wisma Hopoh"),
-                    ("Padang Merdeka", "Textile Museum"),
-                    ("Textile Museum", "Padang Merdeka"),
-                    ("Textile Museum", "St. Thomas' Cathedral"),
-                    ("St. Thomas' Cathedral", "Textile Museum"),
-                    ("Taman Budaya Theater", "Sarawak Art Museum"),
-                    ("Sarawak Art Museum", "Taman Budaya Theater"),
-                    ("Bukit Siol Viewpoint", "Padang Merdeka"),
-                    ("Padang Merdeka", "Bukit Siol Viewpoint"),
+                    ("Premier Food Republic", "Sin Chong Choon Cafe"),
+                    ("Sin Chong Choon Cafe", "Premier Food Republic"),
+                    ("Sin Chong Choon Cafe", "Shell Green Heights"),
+                    ("Shell Green Heights", "Sin Chong Choon Cafe"),
+                    ("Shell Green Heights", "Hong Leong Bank"),
+                    ("Hong Leong Bank", "Shell Green Heights"),
+                    ("Hong Leong Bank", "Taman BDC Park"),
+                    ("Taman BDC Park", "Hong Leong Bank"),
+                    ("Premier Food Republic", "Petronas Green Heights"),
+                    ("Petronas Green Heights", "Premier Food Republic"),
+                    ("Petronas Green Heights", "Green Heights Park"),
+                    ("Green Heights Park", "Petronas Green Heights"),
+                    ("Green Heights Park", "Sin Chong Choon Cafe"),
+                    ("Premier Food Republic", "Hong Leong Bank"),
+                    ("Hong Leong Bank", "Premier Food Republic"),
+                    ("Taman BDC Park", "TalentSeed Daycare"),
+                    ("TalentSeed Daycare", "Taman BDC Park"),
+                    ("TalentSeed Daycare", "Maguro Buffet"),
+                    ("Maguro Buffet", "TalentSeed Daycare"),
+                    ("Maguro Buffet", "BIG Pharmacy Hui Sing"),
+                    ("BIG Pharmacy Hui Sing", "Maguro Buffet"),
+                    ("BIG Pharmacy Hui Sing", "Borneoartifact Gallery"),
+                    ("Borneoartifact Gallery", "BIG Pharmacy Hui Sing"),
+                    ("Borneoartifact Gallery", "Maguro Buffet"),
+                    ("Maguro Buffet", "Borneoartifact Gallery"),
+                    ("Shell Green Heights", "Maguro Buffet"),
+                    ("Maguro Buffet", "Shell Green Heights"),
                 ],
                 accident_connection=None,
                 zoom=17,
             ),
             OSMSpec(
-                name="kuching_padungan_waterfront",
-                bbox=(1.5550, 1.5585, 110.3420, 110.3485),
+                name="kuching_swinburne_corridor",
+                bbox=(1.5200, 1.5450, 110.3500, 110.3750),
                 landmarks={
-                    "Kuching Waterfront": (1.55749, 110.34428),
-                    "Main Bazaar": (1.55701, 110.34520),
-                    "Carpenter Street": (1.55655, 110.34428),
-                    "Plaza Merdeka": (1.55690, 110.34360),
-                    "India Street": (1.55680, 110.34400),
-                    "Tua Pek Kong Temple": (1.55712, 110.34483),
-                    "Darul Hana Bridge": (1.55728, 110.34752),
-                    "Electra House": (1.55670, 110.34470),
+                    "Swinburne Sarawak": (1.532751, 110.357184),
+                    "Kuching District Police HQ": (1.534657, 110.359207),
+                    "The Spring Mall": (1.535765, 110.358653),
+                    "Box Chicken Kopitiam": (1.530439, 110.357355),
+                    "Arena Sukan": (1.529505, 110.362212),
+                    "Emart King Centre": (1.527860, 110.360513),
+                    "Citadines Uplands": (1.536088, 110.356089),
+                    "56 Hotel": (1.526570, 110.357605),
+                    "Borneo Medical Centre": (1.529235, 110.357657),
                 },
-                origin_name="Kuching Waterfront",
-                destination_names=["Darul Hana Bridge", "Main Bazaar"],
+                origin_name="Swinburne Sarawak",
+                destination_names=["The Spring Mall", "Citadines Uplands"],
                 connections=[
-                    ("Kuching Waterfront", "Main Bazaar"),
-                    ("Main Bazaar", "Kuching Waterfront"),
-                    ("Main Bazaar", "Carpenter Street"),
-                    ("Carpenter Street", "Main Bazaar"),
-                    ("Carpenter Street", "Plaza Merdeka"),
-                    ("Plaza Merdeka", "Carpenter Street"),
-                    ("Plaza Merdeka", "India Street"),
-                    ("India Street", "Plaza Merdeka"),
-                    ("India Street", "Tua Pek Kong Temple"),
-                    ("Tua Pek Kong Temple", "India Street"),
-                    ("Tua Pek Kong Temple", "Darul Hana Bridge"),
-                    ("Darul Hana Bridge", "Tua Pek Kong Temple"),
-                    ("Kuching Waterfront", "Electra House"),
-                    ("Electra House", "Kuching Waterfront"),
-                    ("Electra House", "India Street"),
-                    ("India Street", "Electra House"),
-                    ("Main Bazaar", "Tua Pek Kong Temple"),
-                    ("Tua Pek Kong Temple", "Main Bazaar"),
+                    ("Swinburne Sarawak", "Kuching District Police HQ"),
+                    ("Kuching District Police HQ", "Swinburne Sarawak"),
+                    ("The Spring Mall", "Swinburne Sarawak"),
+                    ("Swinburne Sarawak", "The Spring Mall"),
+                    ("Citadines Uplands", "Box Chicken Kopitiam"),
+                    ("Box Chicken Kopitiam", "Citadines Uplands"),
+                    ("Box Chicken Kopitiam", "Borneo Medical Centre"),
+                    ("Borneo Medical Centre", "Box Chicken Kopitiam"),
+                    ("Borneo Medical Centre", "The Spring Mall"),
+                    ("The Spring Mall", "Borneo Medical Centre"),
+                    ("Borneo Medical Centre", "56 Hotel"),
+                    ("56 Hotel", "Borneo Medical Centre"),
+                    ("56 Hotel", "Emart King Centre"),
+                    ("Emart King Centre", "56 Hotel"),
+                    ("Emart King Centre", "Arena Sukan"),
+                    ("Arena Sukan", "Emart King Centre"),
+                    ("Arena Sukan", "Swinburne Sarawak"),
+                    ("Swinburne Sarawak", "Arena Sukan"),
+                    ("Kuching District Police HQ", "Borneo Medical Centre"),
+                    ("Borneo Medical Centre", "Kuching District Police HQ"),
                 ],
                 accident_connection=None,
                 zoom=17,
             ),
             OSMSpec(
                 name="kuching_petra_jaya",
-                bbox=(1.5710, 1.5820, 110.3280, 110.3445),
+                bbox=(1.5680, 1.5850, 110.3240, 110.3480),
                 landmarks={
                     "Sarawak State Library": (1.57710, 110.33822),
                     "Masjid Jamek Petra Jaya": (1.57428, 110.33640),
@@ -809,37 +848,120 @@ def main():
             ),
             OSMSpec(
                 name="kuching_pending_industrial",
-                bbox=(1.5580, 1.5630, 110.3870, 110.3965),
+                bbox=(1.5440, 1.5695, 110.3840, 110.3995),
                 landmarks={
-                    "Pending Industrial Gate": (1.55880, 110.38980),
-                    "Jalan Pending Junction": (1.55980, 110.39200),
-                    "Pending Port Roundabout": (1.56100, 110.39380),
-                    "Senari Terminal": (1.56280, 110.39550),
-                    "Pending Market": (1.56200, 110.39050),
-                    "Kampung Tabuan Hilir Access": (1.56060, 110.38800),
+                    "Kuching Port Authority": (1.555435, 110.395463),
+                    "Penview Hotel": (1.550949, 110.387003),
+                    "Stadium MBKS": (1.564502, 110.387954),
+                    "See Hua Daily News": (1.566310, 110.389892),
+                    "Shin Yang Shipping": (1.550196, 110.391960),
+                    "Kilang Borneo": (1.547688, 110.390595),
+                    "Rajah Cafe": (1.552429, 110.385883),
+                    "Peaches Garden Food Court": (1.549655, 110.386044),
+                    "Padang Futsal Pending": (1.560839, 110.391350),
+                    "Kuching Frozen Food": (1.559153, 110.386440),
+                    "Bintawa Police Station": (1.566798, 110.387141),
+                    "Hong Yong Seafood": (1.551156, 110.391618),
                 },
-                origin_name="Pending Industrial Gate",
-                destination_names=["Senari Terminal", "Pending Market"],
+                origin_name="Penview Hotel",
+                destination_names=["Kuching Port Authority", "Stadium MBKS"],
                 connections=[
-                    ("Pending Industrial Gate", "Jalan Pending Junction"),
-                    ("Jalan Pending Junction", "Pending Industrial Gate"),
-                    ("Jalan Pending Junction", "Pending Port Roundabout"),
-                    ("Pending Port Roundabout", "Jalan Pending Junction"),
-                    ("Pending Port Roundabout", "Senari Terminal"),
-                    ("Senari Terminal", "Pending Port Roundabout"),
-                    ("Jalan Pending Junction", "Pending Market"),
-                    ("Pending Market", "Jalan Pending Junction"),
-                    ("Pending Industrial Gate", "Kampung Tabuan Hilir Access"),
-                    ("Kampung Tabuan Hilir Access", "Pending Industrial Gate"),
-                    ("Kampung Tabuan Hilir Access", "Pending Market"),
-                    ("Pending Market", "Kampung Tabuan Hilir Access"),
+                    ("Penview Hotel", "Rajah Cafe"),
+                    ("Rajah Cafe", "Penview Hotel"),
+                    ("Rajah Cafe", "Peaches Garden Food Court"),
+                    ("Peaches Garden Food Court", "Rajah Cafe"),
+                    ("Penview Hotel", "Peaches Garden Food Court"),
+                    ("Peaches Garden Food Court", "Penview Hotel"),
+                    ("Peaches Garden Food Court", "Shin Yang Shipping"),
+                    ("Shin Yang Shipping", "Peaches Garden Food Court"),
+                    ("Shin Yang Shipping", "Hong Yong Seafood"),
+                    ("Hong Yong Seafood", "Shin Yang Shipping"),
+                    ("Hong Yong Seafood", "Kuching Frozen Food"),
+                    ("Kuching Frozen Food", "Hong Yong Seafood"),
+                    ("Hong Yong Seafood", "Kuching Port Authority"),
+                    ("Kuching Port Authority", "Hong Yong Seafood"),
+                    ("Penview Hotel", "Kuching Frozen Food"),
+                    ("Kuching Frozen Food", "Penview Hotel"),
+                    ("Penview Hotel", "Shin Yang Shipping"),
+                    ("Shin Yang Shipping", "Penview Hotel"),
+                    ("Rajah Cafe", "Kilang Borneo"),
+                    ("Kilang Borneo", "Rajah Cafe"),
+                    ("Kilang Borneo", "Kuching Frozen Food"),
+                    ("Kuching Frozen Food", "Kilang Borneo"),
+                    ("Peaches Garden Food Court", "Kilang Borneo"),
+                    ("Kilang Borneo", "Peaches Garden Food Court"),
+                    ("Kuching Port Authority", "Padang Futsal Pending"),
+                    ("Padang Futsal Pending", "Kuching Port Authority"),
+                    ("Padang Futsal Pending", "Stadium MBKS"),
+                    ("Stadium MBKS", "Padang Futsal Pending"),
+                    ("Stadium MBKS", "See Hua Daily News"),
+                    ("See Hua Daily News", "Stadium MBKS"),
+                    ("See Hua Daily News", "Bintawa Police Station"),
+                    ("Bintawa Police Station", "See Hua Daily News"),
+                    ("Bintawa Police Station", "Kuching Port Authority"),
+                    ("Kuching Port Authority", "Bintawa Police Station"),
+                    ("Bintawa Police Station", "Padang Futsal Pending"),
+                    ("Padang Futsal Pending", "Bintawa Police Station"),
+                    ("Rajah Cafe", "Stadium MBKS"),
+                    ("Stadium MBKS", "Rajah Cafe"),
                 ],
                 accident_connection=None,
                 zoom=15,
             ),
             OSMSpec(
+                name="kuching_sheraton_cbd",
+                bbox=(1.5490, 1.5595, 110.3475, 110.3615),
+                landmarks={
+                    "Sheraton Kuching Hotel": (1.556628, 110.353365),
+                    "Pullman Kuching": (1.555859, 110.351316),
+                    "Ceylonese Restaurant": (1.556366, 110.349069),
+                    "Little Hainan": (1.554402, 110.357430),
+                    "Cat Statue": (1.557788, 110.352831),
+                    "Song Kheng Hai Field": (1.554950, 110.354822),
+                    "Mita Cake House": (1.553268, 110.354487),
+                    "Sharing Downtown": (1.553760, 110.351660),
+                    "Lok-Lok Ban Hock": (1.553366, 110.349226),
+                    "Chinese Temple": (1.551212, 110.354270),
+                    "St. Peter's Church": (1.551979, 110.358787),
+                    "Shell Ban Hock": (1.553080, 110.360432),
+                    "RHB Bank Yung Kong": (1.555506, 110.357640),
+                },
+                origin_name="Sheraton Kuching Hotel",
+                destination_names=["Cat Statue", "Little Hainan"],
+                connections=[
+                    ("Sheraton Kuching Hotel", "Pullman Kuching"),
+                    ("Pullman Kuching", "Sheraton Kuching Hotel"),
+                    ("Pullman Kuching", "Ceylonese Restaurant"),
+                    ("Ceylonese Restaurant", "Pullman Kuching"),
+                    ("Ceylonese Restaurant", "Lok-Lok Ban Hock"),
+                    ("Lok-Lok Ban Hock", "Ceylonese Restaurant"),
+                    ("Lok-Lok Ban Hock", "Chinese Temple"),
+                    ("Chinese Temple", "Lok-Lok Ban Hock"),
+                    ("Chinese Temple", "St. Peter's Church"),
+                    ("St. Peter's Church", "Chinese Temple"),
+                    ("St. Peter's Church", "Shell Ban Hock"),
+                    ("Shell Ban Hock", "St. Peter's Church"),
+                    ("Shell Ban Hock", "RHB Bank Yung Kong"),
+                    ("RHB Bank Yung Kong", "Shell Ban Hock"),
+                    ("RHB Bank Yung Kong", "Little Hainan"),
+                    ("Little Hainan", "RHB Bank Yung Kong"),
+                    ("Little Hainan", "Song Kheng Hai Field"),
+                    ("Song Kheng Hai Field", "Little Hainan"),
+                    ("Song Kheng Hai Field", "Mita Cake House"),
+                    ("Mita Cake House", "Song Kheng Hai Field"),
+                    ("Mita Cake House", "Sharing Downtown"),
+                    ("Sharing Downtown", "Mita Cake House"),
+                    ("Sharing Downtown", "Pullman Kuching"),
+                    ("Pullman Kuching", "Sharing Downtown"),
+                    ("Sheraton Kuching Hotel", "Cat Statue"),
+                    ("Cat Statue", "Sheraton Kuching Hotel"),
+                ],
+                accident_connection=None,
+                zoom=17,
+            ),
+            OSMSpec(
                 name="kuching_airport_corridor",
-                bbox=(1.4680, 1.4935, 110.3240, 110.3500),
+                bbox=(1.4580, 1.5035, 110.3150, 110.3600),
                 landmarks={
                     "Kuching International Airport": (1.487399, 110.341770),
                     "Raia Hotel & Convention Centre": (1.490540, 110.339959),
@@ -884,10 +1006,12 @@ def main():
                     ("Sarawak Forestry Corporation", "Public Bank"),
                     ("Sacred Heart Catholic Church", "Sarawak Forestry Corporation"),
                     ("Sarawak Forestry Corporation", "Sacred Heart Catholic Church"),
-                    ("Sacred Heart Catholic Church", "PETRONAS Batu 7 Jalan Penrissen"),
-                    ("PETRONAS Batu 7 Jalan Penrissen", "Sacred Heart Catholic Church"),
-                    ("Public Bank", "PETRONAS Batu 7 Jalan Penrissen"),
-                    ("PETRONAS Batu 7 Jalan Penrissen", "Public Bank"),
+                    ("Public Bank", "Affin Bank"),
+                    ("Affin Bank", "Public Bank"),
+                    ("Affin Bank", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Affin Bank"),
+                    ("Affin Bank", "Jalan Liu Shan Bang Junction"),
+                    ("Jalan Liu Shan Bang Junction", "Affin Bank"),
                 ],
                 accident_connection=None,
                 zoom=15,
@@ -941,34 +1065,44 @@ def main():
             ),
             OSMSpec(
                 name="kuching_saradise_stutong",
-                bbox=(1.5110, 1.5215, 110.3530, 110.3665),
+                bbox=(1.5030, 1.5115, 110.3570, 110.3685),
                 landmarks={
-                    "Vivacity Megamall": (1.52020, 110.35370),
-                    "CityOne Link": (1.51890, 110.35520),
-                    "Saradise": (1.51280, 110.35910),
-                    "Stutong Market": (1.51570, 110.35850),
-                    "Lorong 7B Stutong": (1.51620, 110.36090),
-                    "Stutong Forest Park": (1.51210, 110.36340),
-                    "KPJ Kuching Specialist Hospital": (1.51500, 110.36610),
-                    "Taman Sri Stutong": (1.51830, 110.36300),
+                    "KPJ Kuching Specialist Hospital": (1.506610, 110.365838),
+                    "Sushi Tie Saradise": (1.504274, 110.359564),
+                    "MySmile Dental Clinic": (1.505336, 110.358682),
+                    "Blendsmiths Cafe": (1.506057, 110.361309),
+                    "Rice King Saradise": (1.504977, 110.362546),
+                    "Level Up Fitness BDC": (1.507035, 110.360995),
+                    "Medsave Pharmacy": (1.507726, 110.362277),
+                    "MSU College Sarawak": (1.509329, 110.361443),
+                    "Masjid Darul Barakah": (1.508814, 110.360326),
+                    "BDC Football Field": (1.507554, 110.364603),
                 },
-                origin_name="Vivacity Megamall",
-                destination_names=["Saradise", "KPJ Kuching Specialist Hospital"],
+                origin_name="Sushi Tie Saradise",
+                destination_names=["KPJ Kuching Specialist Hospital", "Masjid Darul Barakah"],
                 connections=[
-                    ("Vivacity Megamall", "CityOne Link"),
-                    ("CityOne Link", "Vivacity Megamall"),
-                    ("CityOne Link", "Taman Sri Stutong"),
-                    ("Taman Sri Stutong", "CityOne Link"),
-                    ("Taman Sri Stutong", "KPJ Kuching Specialist Hospital"),
-                    ("KPJ Kuching Specialist Hospital", "Taman Sri Stutong"),
-                    ("Vivacity Megamall", "Stutong Market"),
-                    ("Stutong Market", "Vivacity Megamall"),
-                    ("Stutong Market", "Lorong 7B Stutong"),
-                    ("Lorong 7B Stutong", "Stutong Market"),
-                    ("Lorong 7B Stutong", "Saradise"),
-                    ("Saradise", "Lorong 7B Stutong"),
-                    ("Saradise", "Stutong Forest Park"),
-                    ("Stutong Forest Park", "Saradise"),
+                    ("Sushi Tie Saradise", "MySmile Dental Clinic"),
+                    ("MySmile Dental Clinic", "Sushi Tie Saradise"),
+                    ("MySmile Dental Clinic", "Blendsmiths Cafe"),
+                    ("Blendsmiths Cafe", "MySmile Dental Clinic"),
+                    ("Blendsmiths Cafe", "Rice King Saradise"),
+                    ("Rice King Saradise", "Blendsmiths Cafe"),
+                    ("Rice King Saradise", "Level Up Fitness BDC"),
+                    ("Level Up Fitness BDC", "Rice King Saradise"),
+                    ("Level Up Fitness BDC", "Medsave Pharmacy"),
+                    ("Medsave Pharmacy", "Level Up Fitness BDC"),
+                    ("Medsave Pharmacy", "MSU College Sarawak"),
+                    ("MSU College Sarawak", "Medsave Pharmacy"),
+                    ("MSU College Sarawak", "Masjid Darul Barakah"),
+                    ("Masjid Darul Barakah", "MSU College Sarawak"),
+                    ("Masjid Darul Barakah", "BDC Football Field"),
+                    ("BDC Football Field", "Masjid Darul Barakah"),
+                    ("BDC Football Field", "KPJ Kuching Specialist Hospital"),
+                    ("KPJ Kuching Specialist Hospital", "BDC Football Field"),
+                    ("KPJ Kuching Specialist Hospital", "Medsave Pharmacy"),
+                    ("Medsave Pharmacy", "KPJ Kuching Specialist Hospital"),
+                    ("Blendsmiths Cafe", "Level Up Fitness BDC"),
+                    ("Level Up Fitness BDC", "Blendsmiths Cafe"),
                 ],
                 accident_connection=None,
                 zoom=16,

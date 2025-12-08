@@ -118,6 +118,8 @@ class ICS_GUI:
         self.final_label = None
         self.run_routing_button = None
         self._suspend_entry_sync = False
+        self.k_var = tk.StringVar(value="3")
+        self.route_cards_container = None
 
         if self.current_map_entry.get("map_path"):
             self.load_map_data(self.current_map_entry)
@@ -175,7 +177,8 @@ class ICS_GUI:
             if event.delta:
                 right_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-        right_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        right_canvas.bind("<Enter>", lambda _e: right_canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        right_canvas.bind("<Leave>", lambda _e: right_canvas.unbind_all("<MouseWheel>"))
 
         # Actual content frame placed INSIDE the canvas
         right_container = tk.Frame(right_canvas, bg="#f5f5f5")
@@ -186,6 +189,12 @@ class ICS_GUI:
             right_canvas.itemconfig(container_window, width=right_canvas.winfo_width())
 
         right_container.bind("<Configure>", _sync_scrollregion)
+
+        def _init_scroll():
+            _sync_scrollregion(None)
+            right_canvas.yview_moveto(0)
+
+        self.root.after(50, _init_scroll)
 
         right = tk.Frame(right_container, bg="#f5f5f5", padx=30, pady=30)
         right.pack(expand=True)
@@ -322,28 +331,37 @@ class ICS_GUI:
         self.destination_menu.grid(row=2, column=1, sticky="ew", pady=(8, 0))
 
         tk.Label(selections, text="Algorithm:", anchor="w", bg="#f5f5f5").grid(row=3, column=0, sticky="w", pady=(8, 0))
-        self.algorithm_var = tk.StringVar(value="CUS1")
-        algorithms = ["CUS1", "DFS", "BFS", "GBFS", "ASTAR", "CUS2"]
-        self.algorithm_menu = tk.OptionMenu(selections, self.algorithm_var, *algorithms)
+        algorithm_options = [
+            ("CUS1", "Uniform Cost Search (CUS1)"),
+            ("DFS", "Depth-First Search"),
+            ("BFS", "Breadth-First Search"),
+            ("GBFS", "Greedy Best-First Search"),
+            ("ASTAR", "A* Search"),
+            ("CUS2", "Hill Climbing Search (CUS2)"),
+        ]
+        self.algorithm_var = tk.StringVar(value=algorithm_options[0][1])
+        self.algorithm_menu = tk.OptionMenu(
+            selections,
+            self.algorithm_var,
+            *[label for _, label in algorithm_options],
+        )
+        self.algorithm_key_lookup = {label: key for key, label in algorithm_options}
         self.algorithm_menu.grid(row=3, column=1, sticky="ew", pady=(8, 0))
 
-        tk.Label(selections, text="Number of routes (k):", anchor="w",
-                bg="#f5f5f5").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        self.k_var = tk.StringVar(value="3")
-        tk.Spinbox(selections, from_=1, to=5, textvariable=self.k_var, width=5).grid(row=4, column=1, sticky="w")
-        tk.Label(selections, text="Display route:", anchor="w",
-                bg="#f5f5f5").grid(row=5, column=0, sticky="w", pady=(4, 0))
-        self.route_choice_var = tk.StringVar(value="Route 1")
-        self.route_choice_menu = tk.OptionMenu(
-            selections,
-            self.route_choice_var,
-            "Route 1",
-            command=self.on_route_option_selected,
-        )
-        self.route_choice_menu.grid(row=5, column=1, columnspan=3, sticky="ew", pady=(4, 0))
-        self.route_choice_menu.config(state="disabled")
-
         selections.grid_columnconfigure(1, weight=1)
+
+        routes_section = tk.LabelFrame(
+            right,
+            text="Routes",
+            bg="#f5f5f5",
+            padx=10,
+            pady=10,
+        )
+        routes_section.pack(fill="x", pady=10, padx=10)
+
+        self.route_cards_container = tk.Frame(routes_section, bg="#f5f5f5")
+        self.route_cards_container.pack(fill="x", expand=True)
+        self.render_route_cards()
 
         self.run_routing_button = tk.Button(
             right,
@@ -788,8 +806,6 @@ class ICS_GUI:
         self.clear_all_accident_entries()
         self.current_routes = []
         self.active_route_index = 0
-        if hasattr(self, "route_selector_frame"):
-            self.update_route_selector()
         default_destination = self.destination_defaults[0] if self.destination_defaults else None
         self.draw_map(origin=self.origin_default, destination=default_destination)
         self.mark_routes_stale("Map changed. Run routing.")
@@ -892,6 +908,7 @@ class ICS_GUI:
             highlighted = [self.current_routes[self.active_route_index]["path"]]
         self.draw_map(highlighted, self.last_origin_id, self.last_destination_id)
         self.start_animation()
+        self.render_route_cards()
 
     def stop_animation(self):
         if self.animation_after_id is not None and self.map_widget is not None:
@@ -1122,6 +1139,78 @@ class ICS_GUI:
         palette = ["#ff8c42", "#3a86ff", "#8ac926", "#ff006e", "#8338ec"]
         return palette[idx % len(palette)]
 
+    @staticmethod
+    def format_travel_time(hours):
+        minutes = hours * 60.0
+        if minutes >= 100:
+            return f"{minutes:.0f} min"
+        if minutes >= 10:
+            return f"{minutes:.1f} min"
+        return f"{minutes:.2f} min"
+
+    def render_route_cards(self):
+        if self.route_cards_container is None:
+            return
+        for child in self.route_cards_container.winfo_children():
+            child.destroy()
+        if not self.current_routes:
+            tk.Label(
+                self.route_cards_container,
+                text="Run routing to view route options.",
+                bg="#f5f5f5",
+                fg="#666",
+                anchor="w",
+                wraplength=320,
+                justify="left",
+            ).pack(fill="x")
+            return
+
+        for idx, info in enumerate(self.current_routes, start=1):
+            is_active = (idx - 1) == self.active_route_index
+            bg = "#e8f0ff" if is_active else "#ffffff"
+            border = "#4c8bf5" if is_active else "#cccccc"
+            card = tk.Frame(
+                self.route_cards_container,
+                bg=bg,
+                highlightbackground=border,
+                highlightthickness=1,
+                padx=8,
+                pady=6,
+            )
+            card.pack(fill="x", pady=4)
+
+            title = tk.Label(
+                card,
+                text=f"Route {idx} · {self.format_travel_time(info['cost'])}",
+                font=("Arial", 11, "bold"),
+                bg=bg,
+                anchor="w",
+            )
+            title.pack(fill="x")
+
+            path_nodes = " → ".join(self.node_label(n) for n in info["path"])
+            details = tk.Label(
+                card,
+                text=path_nodes,
+                bg=bg,
+                fg="#555",
+                wraplength=320,
+                justify="left",
+                anchor="w",
+            )
+            details.pack(fill="x", pady=(2, 0))
+
+            card.bind("<Button-1>", lambda _e, i=idx - 1: self.on_route_card_clicked(i))
+            title.bind("<Button-1>", lambda _e, i=idx - 1: self.on_route_card_clicked(i))
+            details.bind("<Button-1>", lambda _e, i=idx - 1: self.on_route_card_clicked(i))
+
+    def on_route_card_clicked(self, idx):
+        if idx == self.active_route_index or idx < 0 or idx >= len(self.current_routes):
+            return
+        self.active_route_index = idx
+        self.render_active_route()
+        self.render_route_cards()
+
     def resolve_node(self, name):
         node_id = self.name_to_id.get(name)
         if node_id is None:
@@ -1160,7 +1249,8 @@ class ICS_GUI:
         except ValueError:
             k = 1
 
-        method = self.algorithm_var.get().upper()
+        selected_label = self.algorithm_var.get()
+        method = self.algorithm_key_lookup.get(selected_label, "CUS1").upper()
         if method != "CUS1" and k > 1:
             messagebox.showinfo(
                 "Top-k not available",
@@ -1184,7 +1274,7 @@ class ICS_GUI:
                     f"No path found from {origin_name} to {destination_name}.\n"
                 )
                 self.draw_map(origin=origin_id, destination=destination_id)
-                self.update_route_selector()
+                self.render_route_cards()
                 return
             self.current_routes = routes
         else:
@@ -1203,12 +1293,11 @@ class ICS_GUI:
                     f"No path found from {origin_name} to {destination_name}.\n"
                 )
                 self.draw_map(origin=origin_id, destination=destination_id)
-                self.update_route_selector()
+                self.render_route_cards()
                 return
             self.current_routes = [{"path": path, "cost": cost}]
             self.active_route_index = 0
 
-        self.update_route_selector()
         self.render_active_route()
 
         lines = [
@@ -1222,7 +1311,7 @@ class ICS_GUI:
         for idx, info in enumerate(self.current_routes, start=1):
             path_nodes = " -> ".join(self.node_label(n) for n in info["path"])
             lines.append(f"{idx}) {path_nodes}")
-            lines.append(f"    Travel time: {info['cost']:.4f}")
+            lines.append(f"    Travel time: {self.format_travel_time(info['cost'])}")
 
         lines.append("")
         lines.append(f"Nodes expanded: {nodes_expanded}")
@@ -1239,40 +1328,6 @@ class ICS_GUI:
 
         self.route_output.insert(tk.END, "\n".join(lines))
         self.mark_routes_fresh()
-
-    def update_route_selector(self):
-        if len(self.current_routes) <= 1:
-            self.route_choice_var.set("Route 1")
-            self.route_choice_menu.config(state="disabled")
-            return
-
-        menu = self.route_choice_menu["menu"]
-        menu.delete(0, "end")
-        for idx, info in enumerate(self.current_routes):
-            menu.add_command(
-                label=f"Route {idx + 1} ({info['cost']:.4f} h)",
-                command=lambda value=idx: self.on_route_option_selected(value),
-            )
-        self.route_choice_menu.config(state="normal")
-        self.route_choice_var.set(f"Route {self.active_route_index + 1} ({self.current_routes[self.active_route_index]['cost']:.4f} h)")
-
-    def on_route_option_selected(self, value):
-        idx = 0
-        if isinstance(value, str):
-            try:
-                idx = int(value.split()[1]) - 1
-            except Exception:
-                idx = 0
-        else:
-            idx = int(value)
-        if idx < 0 or idx >= len(self.current_routes):
-            return
-        self.active_route_index = idx
-        if self.last_origin_id is None or self.last_destination_id is None:
-            return
-        if self.current_routes:
-            self.route_choice_var.set(f"Route {idx + 1} ({self.current_routes[idx]['cost']:.4f} h)")
-        self.render_active_route()
 
     def run_single_search(self, method, origin_id, destinations):
         method = method.upper()
