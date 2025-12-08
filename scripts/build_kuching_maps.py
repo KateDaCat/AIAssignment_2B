@@ -32,6 +32,8 @@ except ImportError as exc:  # pragma: no cover
 
 Number = float
 
+FALLBACK_SPEED_KMPH = 35.0
+
 
 def minutes_to_hours(value: Number) -> float:
     return float(value) / 60.0
@@ -423,6 +425,20 @@ def nearest_node_simple(G, lat: float, lon: float):
     return best
 
 
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Returns the great-circle distance between two lat/lon pairs in kilometers.
+    """
+    r = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r * c
+
+
 def map_landmarks(G, landmarks_spec: Dict[str, Tuple[float, float]]):
     mapped: Dict[str, int] = {}
     for name, (lat, lon) in landmarks_spec.items():
@@ -472,13 +488,26 @@ def build_connection_graph(
         if origin_node is None or target_node is None:
             print(f"[warn] Unable to map connection ({name_a} -> {name_b}) to OSM nodes")
             continue
+        new_u = name_to_newid[name_a]
+        new_v = name_to_newid[name_b]
         try:
             path_nodes = nx.shortest_path(
                 weighted_graph, origin_node, target_node, weight="weight"
             )
         except (nx.NetworkXNoPath, nx.NodeNotFound):
-            print(f"[warn] No path between {name_a} and {name_b}")
+            print(f"[warn] No path between {name_a} and {name_b}. Falling back to straight-line edge.")
+            lon_a, lat_a = nodes.get(new_u, (None, None))
+            lon_b, lat_b = nodes.get(new_v, (None, None))
+            if None in (lon_a, lat_a, lon_b, lat_b):
+                continue
+            distance_km = haversine_distance(lat_a, lon_a, lat_b, lon_b)
+            if distance_km <= 0:
+                distance_km = 0.05
+            cost_hours = max(distance_km / FALLBACK_SPEED_KMPH, 0.005)
+            edges[(new_u, new_v)] = cost_hours
+            polylines[(new_u, new_v)] = [(lon_a, lat_a), (lon_b, lat_b)]
             continue
+
         cost_seconds = 0.0
         polyline_points: List[Tuple[float, float]] = []
         for idx in range(len(path_nodes) - 1):
@@ -491,8 +520,6 @@ def build_connection_graph(
         for node_id in path_nodes:
             node_data = G.nodes[node_id]
             polyline_points.append((node_data["x"], node_data["y"]))
-        new_u = name_to_newid[name_a]
-        new_v = name_to_newid[name_b]
         edges[(new_u, new_v)] = cost_seconds / 3600.0
         polylines[(new_u, new_v)] = polyline_points
     return nodes, edges, landmarks, name_to_newid, polylines
@@ -814,13 +841,16 @@ def main():
                 name="kuching_airport_corridor",
                 bbox=(1.4680, 1.4935, 110.3240, 110.3500),
                 landmarks={
-                    "Kuching International Airport": (1.4873996468695103, 110.34177081614432),
-                    "Raia Hotel & Convention Centre": (1.4905402301555795, 110.33995920924441),
+                    "Kuching International Airport": (1.487399, 110.341770),
+                    "Raia Hotel & Convention Centre": (1.490540, 110.339959),
                     "Jalan Liu Shan Bang Junction": (1.47820, 110.33780),
-                    "Sarawak Forestry Corporation": (1.4727491562706154, 110.33532680720366),
-                    "Farley Kuching": (1.484422037459582, 110.3329256689021),
-                    "Big Canteen Food Court": (1.4825888651134826, 110.33056468161541),
-                    "PETRONAS Batu 7 Jalan Penrissen": (1.4734832305104373, 110.32827718683153),
+                    "Sarawak Forestry Corporation": (1.472749, 110.335326),
+                    "Farley Kuching": (1.484422, 110.332925),
+                    "Big Canteen Food Court": (1.482588, 110.330564),
+                    "PETRONAS Batu 7 Jalan Penrissen": (1.473483, 110.328277),
+                    "Public Bank": (1.475815, 110.330860),
+                    "Affin Bank": (1.482142, 110.332108),
+                    "Sacred Heart Catholic Church": (1.472928, 110.329862),
                 },
                 origin_name="Kuching International Airport",
                 destination_names=[
@@ -840,36 +870,71 @@ def main():
                     ("Big Canteen Food Court", "Farley Kuching"),
                     ("Farley Kuching", "Kuching International Airport"),
                     ("Big Canteen Food Court", "Kuching International Airport"),
+                    ("Big Canteen Food Court", "Affin Bank"),
+                    ("Affin Bank", "Big Canteen Food Court"),
+                    ("Affin Bank", "Farley Kuching"),
+                    ("Farley Kuching", "Affin Bank"),
+                    ("Kuching International Airport", "Affin Bank"),
+                    ("Affin Bank", "Kuching International Airport"),
+                    ("Jalan Liu Shan Bang Junction", "Public Bank"),
+                    ("Public Bank", "Jalan Liu Shan Bang Junction"),
+                    ("Public Bank", "Sacred Heart Catholic Church"),
+                    ("Sacred Heart Catholic Church", "Public Bank"),
+                    ("Public Bank", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Public Bank"),
+                    ("Sacred Heart Catholic Church", "Sarawak Forestry Corporation"),
+                    ("Sarawak Forestry Corporation", "Sacred Heart Catholic Church"),
+                    ("Sacred Heart Catholic Church", "PETRONAS Batu 7 Jalan Penrissen"),
+                    ("PETRONAS Batu 7 Jalan Penrissen", "Sacred Heart Catholic Church"),
+                    ("Public Bank", "PETRONAS Batu 7 Jalan Penrissen"),
+                    ("PETRONAS Batu 7 Jalan Penrissen", "Public Bank"),
                 ],
                 accident_connection=None,
                 zoom=15,
             ),
             OSMSpec(
                 name="kuching_batu_kawa",
-                bbox=(1.5040, 1.5125, 110.3040, 110.3210),
+                bbox=(1.5015, 1.5192, 110.2945, 110.3250),
                 landmarks={
-                    "MJC Batu Kawa": (1.50820, 110.31090),
-                    "Batu Kawa Old Town": (1.50560, 110.31170),
-                    "Batu Kawa Bridge": (1.50640, 110.30760),
-                    "Jalan Stapok Junction": (1.51030, 110.30470),
-                    "Moyan Square": (1.50810, 110.31690),
-                    "Kuching City Mall": (1.51050, 110.32010),
+                    "ZUS Coffee - Pines Square, Kuching": (1.511019, 110.307922),
+                    "PETRONAS Batu Kawah": (1.513879, 110.312037),
+                    "Emart Batu Kawa": (1.507132, 110.299509),
+                    "29 Taman Botanika Batu Kawa": (1.510205, 110.299725),
+                    "McDonald's Batu Kawa DT": (1.511574, 110.304945),
+                    "RICE GARDEN by OYES FOOD CORNER": (1.515164, 110.308372),
+                    "PINES SQUARE": (1.514101, 110.316444),
+                    "JJ Pet Shop Kuching @MJC Batu Kawa": (1.516490, 110.311947),
+                    "LED Word Marketing Sdn Bhd": (1.510402, 110.314951),
                 },
-                origin_name="MJC Batu Kawa",
-                destination_names=["Kuching City Mall", "Batu Kawa Bridge"],
+                origin_name="Emart Batu Kawa",
+                destination_names=["PINES SQUARE", "PETRONAS Batu Kawah"],
                 connections=[
-                    ("MJC Batu Kawa", "Batu Kawa Old Town"),
-                    ("Batu Kawa Old Town", "MJC Batu Kawa"),
-                    ("Batu Kawa Old Town", "Batu Kawa Bridge"),
-                    ("Batu Kawa Bridge", "Batu Kawa Old Town"),
-                    ("Batu Kawa Bridge", "Jalan Stapok Junction"),
-                    ("Jalan Stapok Junction", "Batu Kawa Bridge"),
-                    ("MJC Batu Kawa", "Moyan Square"),
-                    ("Moyan Square", "MJC Batu Kawa"),
-                    ("Moyan Square", "Kuching City Mall"),
-                    ("Kuching City Mall", "Moyan Square"),
-                    ("Jalan Stapok Junction", "Kuching City Mall"),
-                    ("Kuching City Mall", "Jalan Stapok Junction"),
+                    ("Emart Batu Kawa", "29 Taman Botanika Batu Kawa"),
+                    ("29 Taman Botanika Batu Kawa", "Emart Batu Kawa"),
+                    ("29 Taman Botanika Batu Kawa", "ZUS Coffee - Pines Square, Kuching"),
+                    ("ZUS Coffee - Pines Square, Kuching", "29 Taman Botanika Batu Kawa"),
+                    ("ZUS Coffee - Pines Square, Kuching", "McDonald's Batu Kawa DT"),
+                    ("McDonald's Batu Kawa DT", "ZUS Coffee - Pines Square, Kuching"),
+                    ("McDonald's Batu Kawa DT", "RICE GARDEN by OYES FOOD CORNER"),
+                    ("RICE GARDEN by OYES FOOD CORNER", "McDonald's Batu Kawa DT"),
+                    ("RICE GARDEN by OYES FOOD CORNER", "PETRONAS Batu Kawah"),
+                    ("PETRONAS Batu Kawah", "RICE GARDEN by OYES FOOD CORNER"),
+                    ("PETRONAS Batu Kawah", "JJ Pet Shop Kuching @MJC Batu Kawa"),
+                    ("JJ Pet Shop Kuching @MJC Batu Kawa", "PETRONAS Batu Kawah"),
+                    ("JJ Pet Shop Kuching @MJC Batu Kawa", "PINES SQUARE"),
+                    ("PINES SQUARE", "JJ Pet Shop Kuching @MJC Batu Kawa"),
+                    ("PINES SQUARE", "LED Word Marketing Sdn Bhd"),
+                    ("LED Word Marketing Sdn Bhd", "PINES SQUARE"),
+                    ("LED Word Marketing Sdn Bhd", "PETRONAS Batu Kawah"),
+                    ("PETRONAS Batu Kawah", "LED Word Marketing Sdn Bhd"),
+                    ("PETRONAS Batu Kawah", "ZUS Coffee - Pines Square, Kuching"),
+                    ("ZUS Coffee - Pines Square, Kuching", "PETRONAS Batu Kawah"),
+                    ("RICE GARDEN by OYES FOOD CORNER", "PINES SQUARE"),
+                    ("PINES SQUARE", "RICE GARDEN by OYES FOOD CORNER"),
+                    ("McDonald's Batu Kawa DT", "LED Word Marketing Sdn Bhd"),
+                    ("LED Word Marketing Sdn Bhd", "McDonald's Batu Kawa DT"),
+                    ("Emart Batu Kawa", "McDonald's Batu Kawa DT"),
+                    ("McDonald's Batu Kawa DT", "Emart Batu Kawa"),
                 ],
                 accident_connection=None,
                 zoom=16,
