@@ -23,6 +23,7 @@ from algorithms.bfs import bfs_search
 from algorithms.gbfs import gbfs_search
 from algorithms.astar import astar_search
 from algorithms.cus2_hcs import cus2_hcs
+from predictor import predict_severity
 
 # =============================
 # ICS GUI (Assignment 2B)
@@ -30,8 +31,9 @@ from algorithms.cus2_hcs import cus2_hcs
 class ICS_GUI:
     SEVERITY_LEVELS = {
         "Minor": 1.15,
-        "Moderate": 1.35,
-        "Severe": 1.75,
+        "Moderate": 1.50,
+        "None": 1.00,
+        "Severe": 2.00,
     }
     MAX_ACCIDENTS = 3
     ORIGIN_PLACEHOLDER = "-- choose start --"
@@ -75,7 +77,7 @@ class ICS_GUI:
         self.animation_step = 0
         self.base_edge_handles = []
 
-        self.model_options = ["CNN", "Transfer Learning (MobileNetV2)", "Random Forest"]
+        self.model_options = ["CNN", "MobileNetV2", "Random Forest"]
         self.selected_model_var = tk.StringVar(value=self.model_options[0])
         self.severity_choices = list(self.SEVERITY_LEVELS.keys())
 
@@ -113,8 +115,8 @@ class ICS_GUI:
         self.no_accidents_label = None
         self.add_accident_button = None
         self.model_run_summary_var = tk.StringVar(value="No accident predictions yet.")
-        self.cnn_label = None
-        self.model2_label = None
+        self.model_label = None
+        self.model_info_label = None
         self.final_label = None
         self.run_routing_button = None
         self._suspend_entry_sync = False
@@ -235,23 +237,23 @@ class ICS_GUI:
         )
         self.model_summary_label.pack(fill="x", pady=(0, 4))
 
-        self.cnn_label = tk.Label(
+        self.model_label = tk.Label(
             incidents,
             text="Primary model output: -",
             anchor="w",
             bg="#f5f5f5",
             fg="#222",
         )
-        self.cnn_label.pack(fill="x")
+        self.model_label.pack(fill="x")
 
-        self.model2_label = tk.Label(
+        self.model_info_label = tk.Label(
             incidents,
             text="Notes: -",
             anchor="w",
             bg="#f5f5f5",
             fg="#555",
         )
-        self.model2_label.pack(fill="x", pady=(0, 2))
+        self.model_info_label.pack(fill="x", pady=(0, 2))
 
         self.final_label = tk.Label(
             incidents,
@@ -402,15 +404,17 @@ class ICS_GUI:
             messagebox.showwarning("No images", "Add at least one accident image before running the model.")
             return
 
-        selected_model = self.selected_model_var.get()
-        placeholder_outputs = {
-            "CNN": ("Minor", "CNN logits indicate low severity"),
-            "Transfer Learning (MobileNetV2)": ("Moderate", "MobileNetV2 features suggest caution"),
-            "Random Forest": ("Severe", "Ensemble votes for severe incident"),
-        }
-        model_result, note = placeholder_outputs.get(
-            selected_model, ("Moderate", "Default response")
-        )
+        selected_model_raw = self.selected_model_var.get()
+        model_key = selected_model_raw.lower()
+
+        # Normalize names
+        if "mobile" in model_key:
+            model_key = "mobilenetv2"
+        elif "cnn" in model_key:
+            model_key = "cnn"
+        elif "forest" in model_key:
+            model_key = "random forest"
+
 
         applied = []
         last_note = ""
@@ -418,7 +422,7 @@ class ICS_GUI:
         try:
             for entry in active_entries:
                 try:
-                    result = self._predict_severity(entry["image_path"], selected_model)
+                    result = self._predict_severity(entry["image_path"], model_key)
                 except Exception as exc:
                     messagebox.showerror("Prediction error", f"Failed to process image:\n{exc}")
                     return
@@ -436,26 +440,25 @@ class ICS_GUI:
             self._suspend_entry_sync = False
 
         if applied:
-            self.cnn_label.config(text=f"{selected_model}: processed {len(applied)} accident image(s).")
-            self.model2_label.config(text=f"Notes: {last_note or 'Model update applied.'}")
+            self.model_label.config(text=f"Model Used: {selected_model_raw}")
+            self.model_info_label.config(text=f"Notes: {last_note or 'Model applied.'}")
             self.final_label.config(text=f"Applied severity levels: {', '.join(applied)}")
         self.sync_accidents_to_graph()
         self.model_run_summary_var.set(
-            f"{selected_model} processed {len(active_entries)} accident(s)."
+            f"{selected_model_raw} processed {len(active_entries)} accident(s)."
         )
         self.mark_routes_stale("New severity predictions applied.")
 
     def _predict_severity(self, image_path, model_name):
-        placeholder_outputs = {
-            "CNN": ("Minor", "CNN logits indicate low severity"),
-            "Transfer Learning (MobileNetV2)": ("Moderate", "MobileNetV2 features suggest caution"),
-            "Random Forest": ("Severe", "Ensemble votes for severe incident"),
-        }
-        severity, note = placeholder_outputs.get(
-            model_name,
-            ("Moderate", "Default response"),
-        )
-        multiplier = self.SEVERITY_LEVELS.get(severity, 1.0)
+        severity = predict_severity(image_path, model_name)
+
+        # Safety check (in case model returns something unexpected)
+        if severity not in self.SEVERITY_LEVELS:
+            severity = "Moderate"
+
+        multiplier = self.SEVERITY_LEVELS[severity]
+
+        note = f"Predicted as {severity} using {model_name}"
         return {"severity": severity, "multiplier": multiplier, "note": note}
 
     # ---------------------------
@@ -475,19 +478,18 @@ class ICS_GUI:
         header.pack(fill="x")
         title_label = tk.Label(header, text="", font=("Arial", 12, "bold"), bg="white")
         title_label.pack(side="left")
-        remove_btn = tk.Button(
-            header,
-            text="Remove",
-            command=lambda frame=card: self.remove_accident_entry(frame),
-        )
+        remove_btn = tk.Button(header, text="Remove", command=lambda frame=card: self.remove_accident_entry(frame))
         remove_btn.pack(side="right")
 
+        # Variables
         origin_var = tk.StringVar(value=self.ORIGIN_PLACEHOLDER)
         target_var = tk.StringVar(value=self.TARGET_PLACEHOLDER)
         severity_var = tk.StringVar(value="Pending")
+        multiplier_var = tk.DoubleVar(value=1.00)
         note_var = tk.StringVar(value="Upload an image to classify.")
         status_var = tk.StringVar(value="Upload an image to classify.")
 
+        # Origin and Target Rows
         row1 = tk.Frame(card, bg="white")
         row1.pack(fill="x", pady=(6, 2))
         tk.Label(row1, text="Starts at:", bg="white").grid(row=0, column=0, sticky="w")
@@ -502,41 +504,26 @@ class ICS_GUI:
         target_menu.grid(row=0, column=1, sticky="ew", padx=(6, 0))
         row2.grid_columnconfigure(1, weight=1)
 
+        # Upload Image
         upload_row = tk.Frame(card, bg="white")
         upload_row.pack(fill="x", pady=(0, 6))
-        tk.Button(
-            upload_row,
-            text="Upload Image",
-            command=lambda entry_frame=card: self.upload_entry_image(entry_frame),
-            width=15,
-        ).pack(side="left")
+        tk.Button(upload_row, text="Upload Image", command=lambda entry_frame=card: self.upload_entry_image(entry_frame), width=15).pack(side="left")
         image_label = tk.Label(upload_row, text="No image", bg="#eeeeee", width=25, height=5)
         image_label.pack(side="left", padx=10)
 
+        # AI-Controlled Severity + Multiplier Row
         severity_row = tk.Frame(card, bg="white")
         severity_row.pack(fill="x", pady=(0, 4))
+
         tk.Label(severity_row, text="Severity:", bg="white").grid(row=0, column=0, sticky="w")
-        severity_options = ["Pending"] + self.severity_choices
-        severity_menu = tk.OptionMenu(severity_row, severity_var, severity_var.get(), *severity_options)
-        severity_menu.grid(row=0, column=1, sticky="ew", padx=(6, 8))
-        severity_row.grid_columnconfigure(1, weight=1)
+        severity_label = tk.Label(severity_row, textvariable=severity_var, bg="white", fg="darkred")
+        severity_label.grid(row=0, column=1, sticky="w", padx=(6, 8))
 
-        multiplier_var = tk.DoubleVar(value=1.00)
         tk.Label(severity_row, text="Multiplier:", bg="white").grid(row=0, column=2, sticky="w")
-        multiplier_spin = tk.Spinbox(
-            severity_row,
-            from_=1.00,
-            to=5.00,
-            increment=0.05,
-            width=6,
-            textvariable=multiplier_var,
-            format="%.2f",
-        )
-        multiplier_spin.grid(row=0, column=3, sticky="w", padx=(6, 0))
+        multiplier_label = tk.Label(severity_row, textvariable=multiplier_var, bg="white")
+        multiplier_label.grid(row=0, column=3, sticky="w", padx=(6, 0))
 
-        severity_label = tk.Label(card, text="Severity: Pending", bg="white", fg="darkred", anchor="w")
-        severity_label.pack(fill="x")
-
+        # Formula + Status
         formula_var = tk.StringVar(value="Formula: time × Pending × 1.00")
         formula_label = tk.Label(card, textvariable=formula_var, bg="white", fg="#333", anchor="w")
         formula_label.pack(fill="x", pady=(0, 4))
@@ -544,6 +531,7 @@ class ICS_GUI:
         status_label = tk.Label(card, textvariable=status_var, anchor="w", bg="white", fg="#555", wraplength=360, justify="left")
         status_label.pack(fill="x", pady=(0, 4))
 
+        # Track Entry
         entry = {
             "frame": card,
             "title_label": title_label,
@@ -555,23 +543,17 @@ class ICS_GUI:
             "image_thumb": None,
             "image_path": None,
             "severity_var": severity_var,
-            "severity_menu": severity_menu,
             "severity_label": severity_label,
             "note_var": note_var,
             "status_var": status_var,
-            "status_label": status_label,
             "multiplier_var": multiplier_var,
-            "multiplier_spin": multiplier_spin,
             "formula_var": formula_var,
-            "formula_label": formula_label,
             "multiplier_dirty": False,
             "suppress_multiplier_trace": False,
         }
 
         origin_var.trace_add("write", lambda *_args, e=entry: self.on_accident_entry_changed(e))
         target_var.trace_add("write", lambda *_args, e=entry: self.on_accident_entry_changed(e))
-        severity_var.trace_add("write", lambda *_args, e=entry: self.update_entry_severity_display(e))
-        multiplier_var.trace_add("write", lambda *_args, e=entry: self.on_entry_multiplier_changed(e))
 
         self.accident_entries.append(entry)
         self.populate_entry_dropdowns(entry)
@@ -580,6 +562,7 @@ class ICS_GUI:
         self.ensure_no_accidents_label()
         self.update_add_accident_button_state()
         self.sync_accidents_to_graph()
+
 
     def remove_accident_entry(self, frame):
         target_entry = None
@@ -1030,18 +1013,27 @@ class ICS_GUI:
             for node, neighbors in self.graph_original.items()
         }
         for (u, v), info in self.user_accidents.items():
-            if u not in new_graph:
-                continue
-            updated = []
-            applied = False
-            for nbr, cost in new_graph[u]:
-                if nbr == v:
-                    updated.append((nbr, cost * info["multiplier"]))
-                    applied = True
-                else:
-                    updated.append((nbr, cost))
-            if applied:
+
+            multiplier = info["multiplier"]
+
+            if u in new_graph:
+                updated = []
+                for nbr, cost in new_graph[u]:
+                    if nbr == v:
+                        updated.append((nbr, cost * multiplier))
+                    else:
+                        updated.append((nbr, cost))
                 new_graph[u] = updated
+
+            if v in new_graph:
+                updated = []
+                for nbr, cost in new_graph[v]:
+                    if nbr == u:
+                        updated.append((nbr, cost * multiplier))
+                    else:
+                        updated.append((nbr, cost))
+                new_graph[v] = updated
+
         self.graph = new_graph
         self.mark_routes_stale("Accident data changed.")
         self.render_active_route()
@@ -1303,7 +1295,19 @@ class ICS_GUI:
         lines = [
             f"Origin: {self.node_label(origin_id)}",
             f"Destination: {self.node_label(destination_id)}",
-            f"Accident: {self.accident.get('edge')} ({self.accident.get('severity')})",
+        ]
+
+        # 👇 INSERT THE FIX HERE (replaces old Accident: ... line)
+        if self.user_accidents:
+            applied = ", ".join(
+                f"{self.node_label(u)} → {self.node_label(v)} ({info['severity']}, ×{info['multiplier']:.2f})"
+                for (u, v), info in self.user_accidents.items()
+            )
+            lines.append(f"Accidents detected: {applied}")
+        else:
+            lines.append("Accidents detected: None")
+
+        lines += [
             "",
             "Routes:",
         ]
@@ -1324,7 +1328,7 @@ class ICS_GUI:
                 )
                 formula_text = info.get("formula")
                 if formula_text:
-                    lines.append(f"  Formula: {formula_text}")
+                    lines.append(f"{formula_text}")
 
         self.route_output.insert(tk.END, "\n".join(lines))
         self.mark_routes_fresh()
