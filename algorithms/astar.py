@@ -39,7 +39,7 @@ def astar_search(graph, origin, destinations, coords):
 
         # Goal test: check if current node is one of the destination nodes
         if current in goal_set:
-            return path_taken, int(g_value), nodes_created  # goal found, return results
+            return path_taken, g_value, nodes_created  # goal found, return results
 
         # Check if current node has neighbors in the graph
         if current in graph:

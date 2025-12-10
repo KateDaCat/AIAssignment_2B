@@ -30,7 +30,7 @@ def cus2_hcs(graph, origin, destinations, coords):
 
     # if start is already a goal, return immediately
     if current in goal_set:
-        return path, int(total_cost), nodes_created
+        return path, total_cost, nodes_created
 
     # loop until we reach a goal or get stuck
     while True:
@@ -77,4 +77,4 @@ def cus2_hcs(graph, origin, destinations, coords):
 
         # check goal after the move
         if current in goal_set:
-            return path, int(total_cost), nodes_created
+            return path, total_cost, nodes_created

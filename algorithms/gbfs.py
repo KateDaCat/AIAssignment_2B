@@ -37,7 +37,7 @@ def gbfs_search(graph, origin, destinations, coords):
 
         # check if current node is one of the destination nodes
         if current in goal_set:
-            return path_taken, int(g_value), nodes_created
+            return path_taken, g_value, nodes_created
 
         # check if current node has outgoing edges
         if current in graph:

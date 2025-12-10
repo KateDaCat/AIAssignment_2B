@@ -746,6 +746,10 @@ class ICS_GUI:
         self.rebuild_graph_with_accidents()
         if self.user_accidents:
             self.mark_routes_stale("Accident slowdowns updated.")
+            if not getattr(self, "_auto_update_lock", False):
+                self._auto_update_lock = True
+                self.run_routing()
+                self._auto_update_lock = False
 
     # ---------------------------
     # Routing
@@ -1008,34 +1012,33 @@ class ICS_GUI:
     def rebuild_graph_with_accidents(self):
         if not self.graph_original:
             return
-        new_graph = {
-            node: [(nbr, cost) for nbr, cost in neighbors]
-            for node, neighbors in self.graph_original.items()
-        }
-        for (u, v), info in self.user_accidents.items():
 
+        # Start with a clean copy of the original graph
+        new_graph = copy.deepcopy(self.graph_original)
+
+        # Apply multipliers to both directions of affected edges
+        for (u, v), info in self.user_accidents.items():
             multiplier = info["multiplier"]
 
+            # Forward direction (u -> v)
             if u in new_graph:
-                updated = []
-                for nbr, cost in new_graph[u]:
-                    if nbr == v:
-                        updated.append((nbr, cost * multiplier))
-                    else:
-                        updated.append((nbr, cost))
-                new_graph[u] = updated
+                new_graph[u] = [
+                    (nbr, cost * multiplier if nbr == v else cost)
+                    for nbr, cost in new_graph[u]
+                ]
 
+            # Reverse direction (v -> u)
             if v in new_graph:
-                updated = []
-                for nbr, cost in new_graph[v]:
-                    if nbr == u:
-                        updated.append((nbr, cost * multiplier))
-                    else:
-                        updated.append((nbr, cost))
-                new_graph[v] = updated
+                new_graph[v] = [
+                    (nbr, cost * multiplier if nbr == u else cost)
+                    for nbr, cost in new_graph[v]
+                ]
 
+        # Store updated graph
         self.graph = new_graph
-        self.mark_routes_stale("Accident data changed.")
+
+        # Mark routing stale and refresh UI
+        self.mark_routes_stale("Accident slowdowns applied.")
         self.render_active_route()
 
     def on_map_change(self, selection):
@@ -1244,11 +1247,6 @@ class ICS_GUI:
         selected_label = self.algorithm_var.get()
         method = self.algorithm_key_lookup.get(selected_label, "CUS1").upper()
         if method != "CUS1" and k > 1:
-            messagebox.showinfo(
-                "Top-k not available",
-                "Multiple routes are currently supported only for CUS1. "
-                "Proceeding with k=1.",
-            )
             k = 1
 
         self.current_routes = []
@@ -1297,7 +1295,6 @@ class ICS_GUI:
             f"Destination: {self.node_label(destination_id)}",
         ]
 
-        # 👇 INSERT THE FIX HERE (replaces old Accident: ... line)
         if self.user_accidents:
             applied = ", ".join(
                 f"{self.node_label(u)} → {self.node_label(v)} ({info['severity']}, ×{info['multiplier']:.2f})"
@@ -1342,12 +1339,53 @@ class ICS_GUI:
         if method == "BFS":
             return bfs_search(self.graph, origin_id, destinations)
         if method == "GBFS":
-            return gbfs_search(self.graph, origin_id, destinations, self.coords)
+            result = gbfs_search(self.graph, origin_id, destinations, self.coords)
+
+            # If already (path, cost, nodes)
+            if len(result) == 3:
+                return result
+
+            # Otherwise unpack and compute cost manually
+            path, nodes = result
+            cost = self.compute_path_cost(path)
+            return path, cost, nodes
+
         if method == "ASTAR":
-            return astar_search(self.graph, origin_id, destinations, self.coords)
+            result = astar_search(self.graph, origin_id, destinations, self.coords)
+
+            if len(result) == 3:  
+                # (path, cost, nodes)
+                return result
+
+            # Otherwise compute cost
+            path, nodes = result
+            cost = self.compute_path_cost(path)
+            return path, cost, nodes
+
         if method == "CUS2":
-            return cus2_hcs(self.graph, origin_id, destinations, self.coords)
+            result = cus2_hcs(self.graph, origin_id, destinations, self.coords)
+
+            if len(result) == 3:
+                return result
+
+            path, nodes = result
+            cost = self.compute_path_cost(path)
+            return path, cost, nodes
+
         raise ValueError(f"Unknown algorithm '{method}'")
+
+    def compute_path_cost(self, path):
+        if not path or len(path) < 2:
+            return 0.0
+
+        total = 0.0
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            for nbr, cost in self.graph[u]:
+                if nbr == v:
+                    total += cost
+                    break
+        return total
 
 def main():
     root = tk.Tk()

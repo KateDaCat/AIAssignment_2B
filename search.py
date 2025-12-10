@@ -126,12 +126,53 @@ def run_single_path_method(method: str, graph, origin, destinations, coords) -> 
     if method == "BFS":
         return bfs_search(graph, origin, destinations)
     if method == "GBFS":
-        return gbfs_search(graph, origin, destinations, coords)
+        result = gbfs_search(graph, origin, destinations, coords)
+
+        # Algorithm already returns (path, cost, nodes)
+        if len(result) == 3:
+            return result
+
+        # Otherwise → (path, nodes)
+        path, nodes = result
+        cost = compute_path_cost(path)
+        return path, cost, nodes
+
     if method == "ASTAR":
-        return astar_search(graph, origin, destinations, coords)
+        result = astar_search(graph, origin, destinations, coords)
+
+        # Algorithm already returns (path, cost, nodes)
+        if len(result) == 3:
+            return result
+
+        # Otherwise → (path, nodes)
+        path, nodes = result
+        cost = compute_path_cost(path)
+        return path, cost, nodes
+
     if method == "CUS2":
-        return cus2_hcs(graph, origin, destinations, coords)
-    raise ValueError(f"Unknown method '{method}'")
+        result = cus2_hcs(graph, origin, destinations, coords)
+
+        # Algorithm already returns (path, cost, nodes)
+        if len(result) == 3:
+            return result
+
+        # Otherwise → (path, nodes)
+        path, nodes = result
+        cost = compute_path_cost(path)
+        return path, cost, nodes
+
+    raise ValueError(f"Unknown algorithm '{method}'")
+
+def compute_path_cost(graph, path):
+    total = 0.0
+    for i in range(len(path) - 1):
+        u = path[i]
+        v = path[i + 1]
+        for nbr, cost in graph.get(u, []):
+            if nbr == v:
+                total += cost
+                break
+    return total
 
 
 def build_name_index(landmarks: dict) -> dict:
