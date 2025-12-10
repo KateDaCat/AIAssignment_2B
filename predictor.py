@@ -34,7 +34,7 @@ def preprocess_cnn(image_path, size=(224, 224)):
     img = cv2.imread(image_path)
     img = cv2.resize(img, size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = img.astype("float32") / 255.0
+    img = img.astype("float32")
     return np.expand_dims(img, axis=0)
 
 def preprocess_mobilenet(image_path, size=(224, 224)):
@@ -69,6 +69,8 @@ def predict_severity(image_path, model_name):
         pred = rf_model.predict(img)
         print("RF prediction:", pred)
         return CLASS_NAMES[pred[0]]
+    
 
+    
     return "Unknown"
 
