@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 from tensorflow import keras
 import joblib
+import tensorflow as tf
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
 
@@ -22,7 +23,21 @@ print("CNN:", CNN_MODEL_PATH)
 print("MobileNet:", MOBILENET_MODEL_PATH)
 print("Random Forest:", RF_MODEL_PATH)
 
-cnn_model = keras.models.load_model(CNN_MODEL_PATH)
+# Must be defined globally for the loss function
+NUM_CLASSES = 4 
+
+def focal_loss(gamma=2., alpha=0.25):
+    def loss(y_true, y_pred):
+        y_true = tf.one_hot(tf.cast(y_true, tf.int32), depth=NUM_CLASSES)
+        pt = tf.reduce_sum(y_pred * y_true, axis=-1)
+        loss = -alpha * (1 - pt)**gamma * tf.math.log(pt + 1e-7)
+        return tf.reduce_mean(loss)
+    return loss
+
+cnn_model = keras.models.load_model(
+    CNN_MODEL_PATH,
+    custom_objects={"loss": focal_loss()}
+    )
 mobilenet_model = keras.models.load_model(MOBILENET_MODEL_PATH)
 rf_model = joblib.load(RF_MODEL_PATH)
 
