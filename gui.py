@@ -43,6 +43,8 @@ class ICS_GUI:
     MAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
 
     def __init__(self, root):
+        self.is_resetting = False
+
         self.root = root
         self.root.title("ICS – Incident Classification System")
         self.root.geometry("1350x750")
@@ -372,6 +374,13 @@ class ICS_GUI:
             width=25,
         )
         self.run_routing_button.pack(pady=10)
+        tk.Button(
+            right,
+            text="Reset System",
+            command=self.reset_system,
+            width=25,
+            bg="#f4cccc"
+        ).pack(pady=(0, 10))
         tk.Label(
             right,
             textvariable=self.routing_status_var,
@@ -709,6 +718,8 @@ class ICS_GUI:
         self.sync_accidents_to_graph()
 
     def sync_accidents_to_graph(self):
+        if self.is_resetting:
+            return
         if not hasattr(self, "user_accidents"):
             return
         self.user_accidents = {}
@@ -755,6 +766,17 @@ class ICS_GUI:
     # Routing
     # ---------------------------
     def load_map_data(self, entry):
+        self._suspend_entry_sync = True
+        self.edge_polylines = {}
+
+        self.current_routes = []
+        self.last_origin_id = None
+        self.last_destination_id = None
+        self.active_route_index = 0
+        self.route_paths = []
+        self.stop_animation()
+        self.user_accidents = {}
+
         map_path = entry.get("map_path")
         if not map_path:
             self.graph = {}
@@ -789,17 +811,19 @@ class ICS_GUI:
         self.current_meta_zoom = meta.get("zoom", 15)
         self.graph_original = copy.deepcopy(self.graph)
         self.user_accidents = {}
-        self.routes_stale = False
         self.clear_all_accident_entries()
         self.current_routes = []
         self.active_route_index = 0
         default_destination = self.destination_defaults[0] if self.destination_defaults else None
         self.draw_map(origin=self.origin_default, destination=default_destination)
         self.mark_routes_stale("Map changed. Run routing.")
+        self._suspend_entry_sync = False
+
 
     def draw_map(self, highlighted_paths=None, origin=None, destination=None):
         if self.map_widget is None:
             return
+
         self.stop_animation()
         self.map_widget.delete_all_marker()
         self.map_widget.delete_all_path()
@@ -811,6 +835,7 @@ class ICS_GUI:
             self.map_widget.set_zoom(13)
             return
 
+        # Center map
         lats = [lat for (_, lat) in self.coords.values()]
         lons = [lon for (lon, _) in self.coords.values()]
         center_lat = sum(lats) / len(lats)
@@ -818,6 +843,7 @@ class ICS_GUI:
         self.map_widget.set_position(center_lat, center_lon)
         self.map_widget.set_zoom(self.current_meta_zoom or 15)
 
+        # Draw markers
         for node in sorted(self.coords.keys()):
             lon, lat = self.coords[node]
             label = self.landmarks.get(node, str(node))
@@ -830,12 +856,10 @@ class ICS_GUI:
             marker = self.map_widget.set_marker(lat, lon, text=display_label)
             self.map_markers.append(marker)
 
-        self.render_base_paths()
+        # Always draw grey base paths
+        if self.graph_original:
+            self.render_base_paths()
 
-        if not highlighted_paths:
-            return
-
-        self.route_paths = []
 
     def render_base_paths(self):
         if self.map_widget is None:
@@ -1009,6 +1033,70 @@ class ICS_GUI:
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.routing_status_var.set(f"Routes up to date (last run {timestamp}).")
 
+    def clear_all_runtime_state(self):
+        # Routing state
+        self.current_routes = []
+        self.active_route_index = 0
+        self.last_origin_id = None
+        self.last_destination_id = None
+        self.routes_stale = True
+
+        # Graph-related state
+        self.graph = {}
+        self.graph_original = {}
+        self.coords = {}
+        self.landmarks = {}
+        self.name_to_id = {}
+        self.edge_polylines = {}
+
+        # Accidents
+        self.user_accidents = {}
+
+        # Animation
+        self.stop_animation()
+
+    def reset_system(self):
+        self.is_resetting = True
+
+        # Stop any running animations
+        self.stop_animation()
+
+        # Clear map visuals
+        if self.map_widget:
+            self.map_widget.delete_all_marker()
+            self.map_widget.delete_all_path()
+
+        # Clear ALL runtime state (graph, routes, accidents, polylines)
+        self.clear_all_runtime_state()
+
+        # Reset UI selections (use placeholders consistently)
+        self.origin_var.set(self.ORIGIN_PLACEHOLDER)
+        self.destination_var.set(self.TARGET_PLACEHOLDER)
+        self.routing_status_var.set("System reset. Select a map to begin.")
+
+        # Clear routing output
+        self.route_output.delete("1.0", tk.END)
+        self.render_route_cards()
+
+        # Remove accident UI cards safely
+        for entry in list(self.accident_entries):
+            entry["frame"].destroy()
+        self.accident_entries.clear()
+        self.ensure_no_accidents_label()
+        self.update_add_accident_button_state()
+
+        # Reload the currently selected map as a fresh instance
+        selected_label = self.map_var.get()
+        for entry in self.map_entries:
+            if entry["label"] == selected_label:
+                self.load_map_data(entry)
+                break
+
+        # Redraw clean base map (no routes)
+        self.draw_map()
+
+        self.is_resetting = False
+
     def rebuild_graph_with_accidents(self):
         if not self.graph_original:
             return
@@ -1039,16 +1127,35 @@ class ICS_GUI:
 
         # Mark routing stale and refresh UI
         self.mark_routes_stale("Accident slowdowns applied.")
-        self.render_active_route()
 
     def on_map_change(self, selection):
+        self.is_resetting = True
+
+        # Clear routing + graph state
+        self.clear_all_runtime_state()
+
+        # Clear accident UI & severity state
+        self.clear_all_accident_entries()
+        self.model_run_summary_var.set("No accident predictions yet.")
+        self.model_label.config(text="Primary model output: -")
+        self.model_info_label.config(text="Notes: -")
+        self.final_label.config(text="Applied severity levels: (none)")
+
+        # Load selected map
         for entry in self.map_entries:
             if entry["label"] == selection:
                 self.map_var.set(selection)
                 self.load_map_data(entry)
-                self.route_output.delete("1.0", tk.END)
-                self.draw_map()
-                return
+                break
+
+        # Clear routing output
+        self.route_output.delete("1.0", tk.END)
+        self.render_route_cards()
+
+        # Draw base map with grey routes
+        self.draw_map()
+
+        self.is_resetting = False
 
     def load_map_metadata(self, meta_path):
         if not os.path.exists(meta_path):
@@ -1219,6 +1326,9 @@ class ICS_GUI:
     def run_routing(self):
         if not self.graph:
             messagebox.showwarning("Missing Map", "Map data is not loaded.")
+            return
+        if not self.coords:
+            messagebox.showwarning("Missing Map", "Map coordinates are not loaded.")
             return
         self.sync_accidents_to_graph()
 
