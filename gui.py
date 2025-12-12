@@ -865,6 +865,11 @@ class ICS_GUI:
             u = node_path[idx]
             v = node_path[idx + 1]
             polyline = self.edge_polylines.get((u, v))
+            # If the map only stored one direction, try the reverse and flip it.
+            if not polyline or len(polyline) < 2:
+                reverse = self.edge_polylines.get((v, u))
+                if reverse and len(reverse) >= 2:
+                    polyline = list(reversed(reverse))
             segment = []
             if polyline:
                 segment = [(lat, lon) for lon, lat in polyline]
@@ -1120,6 +1125,12 @@ class ICS_GUI:
             except ValueError:
                 continue
             polylines[(u, v)] = [(pt["lon"], pt["lat"]) for pt in points]
+        # Also synthesize reverse-direction polylines when missing, to avoid
+        # straight-line fallback for graphs that contain both directions but
+        # the geometry was stored only once.
+        for (u, v), pts in list(polylines.items()):
+            if (v, u) not in polylines and pts and len(pts) >= 2:
+                polylines[(v, u)] = list(reversed(pts))
         return polylines
 
     @staticmethod

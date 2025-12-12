@@ -8,6 +8,7 @@ OpenStreetMap export into the map format expected by graph.py/search.py.
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import math
 import os
@@ -67,18 +68,32 @@ def compute_polylines_for_edges(
     coords: Dict[int, Tuple[float, float]],
     edges: Dict[Tuple[int, int], float],
 ):
-    mapping: Dict[int, int] = {}
+    # Build a small candidate list per landmark to avoid degenerate
+    # start==end mappings (which produce 1-point "polylines").
+    mapping_candidates: Dict[int, List[int]] = {}
     for node_id, (lon, lat) in coords.items():
-        mapped = nearest_node_simple(osm_graph, lat, lon)
-        if mapped is not None:
-            mapping[node_id] = mapped
+        candidates = nearest_nodes_k(osm_graph, lat, lon, k=8)
+        if candidates:
+            mapping_candidates[node_id] = candidates
 
     polylines: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
     for (u, v) in edges:
-        start = mapping.get(u)
-        end = mapping.get(v)
+        start_candidates = mapping_candidates.get(u, [])
+        end_candidates = mapping_candidates.get(v, [])
+        start = start_candidates[0] if start_candidates else None
+        end = end_candidates[0] if end_candidates else None
         if start is None or end is None:
             continue
+        # If both endpoints map to the same OSM node (common when landmarks are
+        # very close), try alternative nearest candidates to force a real path.
+        if start == end and u != v:
+            end_alt = next((cand for cand in end_candidates[1:] if cand != start), None)
+            if end_alt is not None:
+                end = end_alt
+            else:
+                start_alt = next((cand for cand in start_candidates[1:] if cand != end), None)
+                if start_alt is not None:
+                    start = start_alt
         try:
             path_nodes = nx.shortest_path(
                 weighted_graph, start, end, weight="weight"
@@ -423,6 +438,31 @@ def nearest_node_simple(G, lat: float, lon: float):
             best = node
             best_dist = dist
     return best
+
+
+def nearest_nodes_k(G, lat: float, lon: float, k: int = 5) -> List[int]:
+    """
+    Return up to k nearest OSM node IDs to (lat, lon) by squared distance.
+    Uses a fixed-size heap to avoid sorting the entire node list.
+    """
+    if k <= 0:
+        return []
+    heap: List[Tuple[float, int]] = []  # (-dist, node) as a max-heap
+    for node, data in G.nodes(data=True):
+        x = data.get("x")
+        y = data.get("y")
+        if x is None or y is None:
+            continue
+        dist = (x - lon) ** 2 + (y - lat) ** 2
+        if len(heap) < k:
+            heapq.heappush(heap, (-dist, node))
+            continue
+        # heap[0] is the farthest among the kept candidates (most negative => largest dist)
+        if dist < -heap[0][0]:
+            heapq.heapreplace(heap, (-dist, node))
+    # Return nearest-first
+    heap.sort(key=lambda item: -item[0])
+    return [node for _negdist, node in heap]
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
