@@ -865,6 +865,12 @@ class ICS_GUI:
             u = node_path[idx]
             v = node_path[idx + 1]
             polyline = self.edge_polylines.get((u, v))
+            if not polyline:
+                # Many map exports only store geometry for one direction.
+                # If the reverse exists, reuse it by reversing the point order.
+                reverse = self.edge_polylines.get((v, u))
+                if reverse:
+                    polyline = list(reversed(reverse))
             segment = []
             if polyline:
                 segment = [(lat, lon) for lon, lat in polyline]
